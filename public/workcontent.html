@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Work Content</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <h2>Work Content Form</h2>
+      <p id="teamDisplay"></p>
+
+      <label>Task</label>
+      <input type="text" id="task" />
+
+      <label>Date</label>
+      <input type="date" id="date" />
+
+      <label>Items</label>
+      <input list="itemsList" id="itemInput" />
+      <datalist id="itemsList"></datalist>
+
+      <label>Serial Number</label>
+      <input type="text" id="serial" />
+
+      <label>Person In Charge</label>
+      <select id="pic"></select>
+
+      <button onclick="submitWork()">SAVE</button>
+    </div>
+    <script src="js/workcontent.js"></script>
+  </body>
+</html>

@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Records</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body>
+    <div class="records-container">
+      <h2 style="font-family: Tahoma; font-size: 30px">Work Content Records</h2>
+      <div
+        style="
+          display: flex;
+          justify-content: left;
+          align-items: center;
+          width: 100%;
+        "
+      >
+        <input type="text" id="search" placeholder="Search..." />
+
+        <select id="filterTeam">
+          <option value="">All Teams</option>
+          <option value="Team 1">TEAM 1</option>
+          <option value="Team 2">TEAM 2</option>
+        </select>
+
+        <select id="filterItem">
+          <option value="">All Items</option>
+        </select>
+
+        <input
+          type="text"
+          id="filterDateRange"
+          placeholder="Select Date Range..."
+          style="width: 220px"
+        />
+
+        <button
+          id="clearDataBtn"
+          style="
+            background: #666;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-left: 5px;
+            border: none;
+            cursor: pointer;
+          "
+        >
+          Clear
+        </button>
+
+        <select id="filterPIC">
+          <option value="">All PIC</option>
+        </select>
+
+        <div
+          style="
+            display: flex;
+            justify-content: right;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+            width: 100%;
+          "
+        >
+          <button
+            onclick="loadRecords()"
+            style="
+              background: #c8102e;
+              color: white;
+              padding: 12px 20px;
+              border-radius: 8px;
+              border: none;
+              cursor: pointer;
+              font-weight: bold;
+            "
+          >
+            Refresh
+          </button>
+
+          <a
+            href="Dashboard.html"
+            style="
+              display: inline-block;
+              text-decoration: none;
+              background: #c8102e;
+              color: white;
+              padding: 12px 20px;
+              border-radius: 8px;
+              font-weight: bold;
+            "
+          >
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+
+      <div
+        style="
+          font-family: Tahoma;
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #333;
+        "
+      >
+        Total Records:
+        <span id="totalRecordsCount">0</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Team</th>
+            <th>Task</th>
+            <th>Date</th>
+            <th>Item</th>
+            <th>Serial</th>
+            <th>Train ID</th>
+            <th>PIC</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Popup Edit Record -->
+    <div
+      id="editModal"
+      style="
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+      "
+    >
+      <div
+        style="
+          background-color: white;
+          padding: 25px;
+          border-radius: 12px;
+          width: 400px;
+          box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.25);
+          font-family: Tahoma, sans-serif;
+        "
+      >
+        <h3
+          style="
+            margin-top: 0;
+            text-align: center;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+          "
+        >
+          Edit Record
+        </h3>
+
+        <input type="hidden" id="editRecordId" />
+
+        <table style="width: 100%; border-collapse: collapse">
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold; width: 40%">Task</td>
+            <td style="padding: 10px 0">
+              <input
+                type="text"
+                id="editTask"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+              />
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold">Date</td>
+            <td style="padding: 10px 0">
+              <input
+                type="date"
+                id="editDate"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+              />
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold">Item</td>
+            <td style="padding: 10px 0">
+              <input
+                type="text"
+                id="editItem"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+              />
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold">Serial Number</td>
+            <td style="padding: 10px 0">
+              <input
+                type="text"
+                id="editSerial"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+              />
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold">Train ID(s)</td>
+            <td style="padding: 10px 0">
+              <input
+                type="text"
+                id="editTrains"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+                placeholder="e.g. 1, 5, 24"
+              />
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 10px 0; font-weight: bold">Person in Charge</td>
+            <td style="padding: 10px 0">
+              <input
+                type="text"
+                id="editPic"
+                style="width: 100%; padding: 6px; box-sizing: border-box"
+              />
+            </td>
+          </tr>
+        </table>
+
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+          "
+        >
+          <button
+            onclick="closeEditModal()"
+            style="
+              background: white;
+              border: 2px solid #c8102e;
+              color: #c8102e;
+              padding: 8px 20px;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: bold;
+            "
+          >
+            Cancel
+          </button>
+          <button
+            onclick="saveEditedRecord()"
+            style="
+              background: #c8102e;
+              border: none;
+              color: white;
+              padding: 8px 20px;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: bold;
+            "
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px">
+      <button
+        onclick="exportToExcel()"
+        style="
+          background: #1f7244;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 8px;
+          border: none;
+          cursor: pointer;
+          font-weight: bold;
+        "
+      >
+        Export to Excel
+      </button>
+    </div>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script src="js/records.js"></script>
+  </body>
+</html>
