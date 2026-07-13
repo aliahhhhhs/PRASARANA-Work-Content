@@ -8,7 +8,7 @@ const sqlite3 = require("sqlite3").verbose();
 const authRoute = require("./routes/auth");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true}));
