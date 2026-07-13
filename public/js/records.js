@@ -98,7 +98,7 @@ async function loadRecords() {
             let actionButtons = `<em>No Access</em>`;
             if (isAdmin) {
                 actionButtons = `
-                <button class="edit" onclick="editRecord(${row.id})">Edit</button>
+                <button class="edit" onclick="editRecord(${row.id}, '${row.task || ''}', '${row.date || ''}', '${row.item || ''}', '${row.serial || ''}', '${row.trains || ''}', '${row.pic || ''}')">Edit</button>
                 <button class="delete" onclick="deleteRecord(${row.id})">Delete</button>`;
             }
 
@@ -134,15 +134,15 @@ async function loadRecords() {
 }
 
 // Buka Modal Edit dan tetapkan nilai kosong mengikut lakaran
-function editRecord(id) {
+function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editRecordId").value = id;
     
-    document.getElementById("editTask").value = "";
-    document.getElementById("editDate").value = "";
-    document.getElementById("editItem").value = "";
-    document.getElementById("editSerial").value = "";
-    document.getElementById("editTrains").value = "";
-    document.getElementById("editPic").value = "";
+    document.getElementById("editTask").value = task || "";
+    document.getElementById("editDate").value = date || "";
+    document.getElementById("editItem").value = item || "";
+    document.getElementById("editSerial").value = serial || "";
+    document.getElementById("editTrains").value = trains || "";
+    document.getElementById("editPic").value = pic || "";
     
     document.getElementById("editModal").style.display = "flex";
 }

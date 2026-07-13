@@ -134,11 +134,11 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
             item = COALESCE(NULLIF(?, ''), item),
             serial = COALESCE(NULLIF(?, ''), serial),
             pic = COALESCE(NULLIF(?, ''), pic),
-            trains = COALESCE (NULLIF(?, ''), trains)        
+            trains = COALESCE(NULLIF(?, ''), trains)        
         WHERE id = ?
     `;
     
-    db.run(query, [task, date, item, serial, pic, trains], function(err) {
+    db.run(query, [task, date, item, serial, pic, trains, id], function(err) {
         if (err) {
             return res.status(500).json({ success: false, message: err.message });
         }
