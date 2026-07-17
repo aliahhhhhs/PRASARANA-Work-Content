@@ -67,9 +67,9 @@ const senaraiUser = [
     { name: "Farhan",  pass: "123456789", team: "Team 1"  },
     { name: "SayaAdmin1",  pass: "SayaAdmin", team: "Team 1" },
     { name: "Syafiq", pass: "123456789", team: "Team 2" },
-    { name: "Hafis", pass: "123456789", team: "Team 2" },
+    { name: "Hafiz", pass: "123456789", team: "Team 2" },
     { name: "Khai",  pass: "123456789", team: "Team 2" },
-    { name: "Izzuddin",  pass: "123456789", team: "Team 2" },
+    { name: "Izudin",  pass: "123456789", team: "Team 2" },
     { name: "Nik",  pass: "123456789", team: "Team 2"  },
     { name: "SayaAdmin2",  pass: "SayaAdmin", team: "Team 2"  },
 ];
@@ -113,9 +113,9 @@ const pics = [
     { name: 'Zaid', team: 'Team 1' },
     { name: 'Farhan', team: 'Team 1' },
     { name: 'Syafiq', team: 'Team 2' },
-    { name: 'Hafis', team: 'Team 2' },
+    { name: 'Hafiz', team: 'Team 2' },
     { name: 'Khai', team: 'Team 2' },
-    { name: 'Izzuddin', team: 'Team 2' },
+    { name: 'Izudin', team: 'Team 2' },
     { name: 'Nik', team: 'Team 2' },
 ];
 
