@@ -210,6 +210,33 @@ button.delete{
     cursor: pointer;
 }
 
+.noti-dropdown {
+        display: none; position: absolute; right: 20px; top: 70px;
+        background: white; border: 1px solid #ccc; width: 320px;
+        max-height: 300px; overflow-y: auto; z-index: 2000;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15); border-radius: 8px; padding: 10px;
+      }
+      
+.noti-item { 
+    padding: 8px; 
+    border-bottom: 1px solid #eee; 
+    font-size: 13px; 
+}
+
+.noti-item button { 
+    background: #c8102e; color: white; 
+    border: none; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    float: right;
+}
+      
+.train-selector-container { 
+    position: relative; 
+    display: inline-block; 
+}
+
 @media (max-width: 768px) {
     body{
         font-size: 14px;

@@ -32,6 +32,17 @@ db.serialize(() => {
             console.log("'Trains' column successfully added.");
         }
     });
+
+    db.run(`
+    CREATE TABLE IF NOT EXISTS edit_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id INTEGER,
+        username TEXT,
+        message TEXT,
+        status TEXT DEFAULT 'PENDING',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
 });
 
 // PROTECT PAGE
@@ -152,6 +163,46 @@ app.delete("/api/workcontent/:id", checkLogin, (req, res) => {
     db.run("DELETE FROM work_content WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true, message: "Rekod dipadam." });
+    });
+});
+
+// Ask For Edit
+app.post("/api/edit-requests", checkLogin, (req, res) => {
+    const { record_id, message } = req.body;
+    const username = req.session.user ? req.session.user.username : "User";
+
+    if (!record_id || !message) {
+        return res.status(400).json({ success: false, message: "Data tidak lengkap."});
+    }
+
+    const query = "INSERT INTO edit_requests (record_id, username, message) VALUES (?, ?, ?)";
+    db.run(query, [record_id, username, message], function(err) {
+        if (err) return res.status(500).json({success: false, message: err.message});
+        res.json ({ success: true, message: "Notifikasi edit telah dihantar ke Admin." });
+    });
+});
+
+// Take Requests (Admin Only)
+app.get("/api/edit-requests", checkLogin, (req, res) => {
+    const currentUser = req.session.user;
+    const isAdmin = currentUser && (currentUser.username === "SayaAdmin1" || currentUser.username === "SayaAdmin2");
+
+    if (!isAdmin) {
+        return res.status(403).json ({ success: false, message: "Access Denied."});
+    }
+
+    db.all("SELECT * FROM edit_requests WHERE status = 'PENDING' ORDER BY id DESC", [], (err, rows) => {
+        if (err) return res.status(500).json ({ error: err.message });
+        res.json(rows);    
+    });
+});
+
+// Notification Status 
+app.post("/api/edit-requests/dismiss/:id", checkLogin, (req, res) => {
+    const id = req.params.id;
+    db.run("UPDATE edit_requests SET status = 'DONE' WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json ({ error: err.message });
+    res.json({ success: true });
     });
 });
 
