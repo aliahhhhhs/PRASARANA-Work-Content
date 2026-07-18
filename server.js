@@ -118,7 +118,7 @@ app.post("/api/workcontent", checkLogin, (req, res) => {
     
     db.run(query, [team, task, date, item, serial, pic, trains], function(err) {
         if (err) return res.status(500).json({ success: false, message: err.message });
-        res.json({ success: true, message: "Data berjaya disimpan!" });
+        res.json({ success: true, message: "Data Successfully saved!" });
     });
 });
 
@@ -153,7 +153,7 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
         if (err) {
             return res.status(500).json({ success: false, message: err.message });
         }
-        res.json({ success: true, message: "Rekod berjaya dikemaskini." });
+        res.json({ success: true, message: "Record successfully updated." });
     });
 });
 
@@ -162,7 +162,7 @@ app.delete("/api/workcontent/:id", checkLogin, (req, res) => {
     const id = req.params.id;
     db.run("DELETE FROM work_content WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, message: "Rekod dipadam." });
+        res.json({ success: true, message: "Record deleted." });
     });
 });
 
@@ -172,13 +172,13 @@ app.post("/api/edit-requests", checkLogin, (req, res) => {
     const username = req.session.user ? req.session.user.username : "User";
 
     if (!record_id || !message) {
-        return res.status(400).json({ success: false, message: "Data tidak lengkap."});
+        return res.status(400).json({ success: false, message: "Incomplete data."});
     }
 
     const query = "INSERT INTO edit_requests (record_id, username, message) VALUES (?, ?, ?)";
     db.run(query, [record_id, username, message], function(err) {
         if (err) return res.status(500).json({success: false, message: err.message});
-        res.json ({ success: true, message: "Notifikasi edit telah dihantar ke Admin." });
+        res.json ({ success: true, message: "Notification has been sent to Admin." });
     });
 });
 
