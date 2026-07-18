@@ -91,30 +91,45 @@ const items = [
 
 items.forEach(item=>{
     db.run(
-        "INSERT INTO items(item_name) VALUES(?)", [item]);
+        "INSERT OR IGNORE INTO items(item_name) VALUES(?)", [item]);
 });
 
-// PIC List
-const pics = [
-    { name: 'Elyas', team: 'Team 1' },
-    { name: 'Hairez', team: 'Team 1' },
-    { name: 'Isa', team: 'Team 1' },
-    { name: 'Zaid', team: 'Team 1' },
-    { name: 'Farhan', team: 'Team 1' },
-    { name: 'Syafiq', team: 'Team 2' },
-    { name: 'Hafiz', team: 'Team 2' },
-    { name: 'Khai', team: 'Team 2' },
-    { name: 'Izudin', team: 'Team 2' },
-    { name: 'Nik', team: 'Team 2' },
-];
+// PIC
+db.run("DELETE FROM person_in_charge", (err) => {
+        if (err) {
+            console.error("Gagal memadam PIC lama:", err.message);
+            return;
+        }
+        
+        console.log("Data PIC lama dibersihkan. Memasukkan senarai 10 orang PIC rasmi...");
 
-pics.forEach(pic=>{
-    db.run(
-    "INSERT INTO person_in_charge(name, team_name) VALUES (?, ?)", [pic.name, pic.team]);
+        const pics = [
+            { name: 'Elyas', team: 'Team 1' },
+            { name: 'Hairez', team: 'Team 1' },
+            { name: 'Isa', team: 'Team 1' },
+            { name: 'Zaid', team: 'Team 1' },
+            { name: 'Farhan', team: 'Team 1' },
+            { name: 'Syafiq', team: 'Team 2' },
+            { name: 'Hafiz', team: 'Team 2' },
+            { name: 'Khai', team: 'Team 2' },
+            { name: 'Izudin', team: 'Team 2' },
+            { name: 'Nik', team: 'Team 2' },
+        ];
+
+        const stmtPic = db.prepare("INSERT INTO person_in_charge(name, team_name) VALUES (?, ?)");
+        
+        pics.forEach(pic => {
+            stmtPic.run([pic.name, pic.team], (err) => {
+                if (err) console.error(`Gagal masukkan ${pic.name}:`, err.message);
+            });
+        });
+
+        stmtPic.finalize(() => {
+            console.log("Semua senarai PIC rasmi berjaya dikemaskini!");
+            // db.close diletakkan di dalam ini supaya ia tidak jalan terlalu cepat
+            db.close();
+            console.log("Database ditutup dengan selamat.");
+        });
     });
 
 }); 
-
-
-db.close();
-console.log("Database initialized successfully.");
