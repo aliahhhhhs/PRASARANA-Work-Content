@@ -1,164 +1,16 @@
-let selectedTrains = [];
-let editSelectedTrains = [];
+// ==========================================
+// 1. PEMBOLEHUBAH GLOBAL & FLATPICKR
+// ==========================================
+let selectedTrains = [];      // Untuk penapis (filter) jadual utama
+let editSelectedTrains = [];  // Untuk pemilihan di dalam Modal Edit
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
 let isAdminUser = false;
 
-// Keperluan 1: Init Grid Pemilihan Train ID 1-58 (Sama seperti fungsi Dashboard)
-function initTrainSelector() {
-    const trainGrid = document.getElementById("trainGrid");
-    if (!trainGrid) return;
-    trainGrid.innerHTML = "";
-    
-    for (let i = 1; i <= 58; i++) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.innerText = i;
-        btn.style.cssText = "width: 100%; padding: 6px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold;";
-        
-        btn.onclick = (e) => {
-            e.preventDefault();
-            toggleTrainSelection(i, btn);
-        };
-        trainGrid.appendChild(btn);
-    }
-}
-
-function initEditTrainSelector() {
-    const trainGrid = document.getElementById("editTrainGrid");
-    if (!trainGrid) return;
-    trainGrid.innerHTML = "";
-    
-    for (let i = 1; i <= 58; i++) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.innerText = i;
-        btn.style.cssText = "width: 100%; padding: 4px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold;";
-        
-        // Tandakan warna merah sekiranya nilai tren sedia ada aktif dalam rekod
-        if (editSelectedTrains.includes(i)) {
-            btn.style.background = "#c8102e";
-            btn.style.color = "white";
-        }
-
-        btn.onclick = (e) => {
-            e.preventDefault();
-            toggleEditTrainSelection(i, btn);
-        };
-        trainGrid.appendChild(btn);
-    }
-}
-
-function toggleTrainDropdown(e) {
-    if (e) e.preventDefault();
-    const dd = document.getElementById("trainDropdown");
-    if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
-}
-
-
-function toggleEditTrainDropdown(e) {
-    if (e) e.preventDefault();
-    const dd = document.getElementById("editTrainDropdown");
-    if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
-}
-
-function toggleTrainSelection(num, btn) {
-    const index = selectedTrains.indexOf(num);
-    if (index > -1) {
-        selectedTrains.splice(index, 1);
-        btn.style.background = "#f8fafc";
-        btn.style.color = "#000";
-    } else {
-        selectedTrains.push(num);
-        btn.style.background = "#c8102e";
-        btn.style.color = "white";
-    }
-    renderSelectedTrains();
-    loadRecords(); // Auto-filter semula bila train ditekan
-}
-
-function toggleEditTrainSelection(num, btn) {
-    const index = editSelectedTrains.indexOf(num);
-    if (index > -1) {
-        editSelectedTrains.splice(index, 1);
-        btn.style.background = "#f8fafc";
-        btn.style.color = "#000";
-    } else {
-        editSelectedTrains.push(num);
-        btn.style.background = "#c8102e";
-        btn.style.color = "white";
-    }
-    renderEditSelectedTrains();
-}
-
-function renderSelectedTrains() {
-    const container = document.getElementById("selectedTrainsContainer");
-    if (!container) return;
-    container.innerHTML = "";
-    
-    selectedTrains.sort((a,b) => a - b).forEach(num => {
-        const circle = document.createElement("span");
-        circle.innerText = num;
-        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 11px; margin-right: 4px;";
-        container.appendChild(circle);
-    });
-}
-
-function renderEditSelectedTrains() {
-    const container = document.getElementById("editSelectedTrainsContainer");
-    if (!container) return;
-    container.innerHTML = "";
-    
-    editSelectedTrains.sort((a,b) => a - b).forEach(num => {
-        const circle = document.createElement("span");
-        circle.innerText = num;
-        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px; margin-right: 4px;";
-        container.appendChild(circle);
-    });
-}
-
-// Tutup dropdown train jika klik luar kawasan
-document.addEventListener("click", function(event) {
-    const container = document.querySelector(".train-selector-container");
-    if (container && !container.contains(event.target)) {
-        const dd = document.getElementById("trainDropdown");
-        if (dd) dd.style.display = "none";
-    }
-});
-
-// Tutup dropdown sekiranya klik di luar sempadan grid edit
-document.addEventListener("click", function(event) {
-    const container = document.querySelector(".edit-train-container");
-    if (container && !container.contains(event.target)) {
-        const dd = document.getElementById("editTrainDropdown");
-        if (dd) dd.style.display = "none";
-    }
-});
-
-// Keperluan 2: Hantar chatbox permohonan edit
-async function submitEditRequest() {
-    const recordId = document.getElementById("chatRecordId").value;
-    const message = document.getElementById("chatMessage").value;
-
-    if(!recordId || !message) {
-        alert("Sila isi ID Rekod dan Mesej pembetulan!");
-        return;
-    }
-
-    const res = await fetch("/api/edit-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ record_id: recordId, message: message })
-    });
-
-    const result = await res.json();
-    alert(result.message);
-    document.getElementById("chatRecordId").value = "";
-    document.getElementById("chatMessage").value = "";
-}
-
-// Keperluan 3: Pihak Admin melihat Dropdown Notifikasi
+// ==========================================
+// 2. SISTEM NOTIFIKASI ADMIN (CHATBOX EDIT)
+// ==========================================
 function toggleNotiDropdown(e) {
     if(e) e.preventDefault();
     const menu = document.getElementById("notiDropdownMenu");
@@ -203,7 +55,168 @@ async function dismissNotification(id) {
     loadNotifications();
 }
 
-// Ambil data Dropdown PIC & Items
+async function submitEditRequest() {
+    const recordId = document.getElementById("chatRecordId").value;
+    const message = document.getElementById("chatMessage").value;
+
+    if(!recordId || !message) {
+        alert("Sila isi ID Rekod dan Mesej pembetulan!");
+        return;
+    }
+
+    const res = await fetch("/api/edit-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ record_id: recordId, message: message })
+    });
+
+    const result = await res.json();
+    alert(result.message);
+    document.getElementById("chatRecordId").value = "";
+    document.getElementById("chatMessage").value = "";
+}
+
+// ==========================================
+// 3. LOGIK GRID TRAIN ID (PENAPIS UTAMA JADUAL)
+// ==========================================
+function initTrainSelector() {
+    const trainGrid = document.getElementById("trainGrid");
+    if (!trainGrid) return;
+    trainGrid.innerHTML = "";
+    
+    for (let i = 1; i <= 58; i++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerText = i;
+        btn.style.cssText = "width: 100%; padding: 6px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold;";
+        
+        if (selectedTrains.includes(i)) {
+            btn.style.background = "#c8102e";
+            btn.style.color = "white";
+        }
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            toggleTrainSelection(i, btn);
+        };
+        trainGrid.appendChild(btn);
+    }
+}
+
+function toggleTrainDropdown(e) {
+    if (e) e.preventDefault();
+    const dd = document.getElementById("trainDropdown");
+    if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
+}
+
+function toggleTrainSelection(num, btn) {
+    const index = selectedTrains.indexOf(num);
+    if (index > -1) {
+        selectedTrains.splice(index, 1);
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#000";
+    } else {
+        selectedTrains.push(num);
+        btn.style.background = "#c8102e";
+        btn.style.color = "white";
+    }
+    renderSelectedTrains();
+    loadRecords();
+}
+
+function renderSelectedTrains() {
+    const container = document.getElementById("selectedTrainsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    
+    selectedTrains.sort((a,b) => a - b).forEach(num => {
+        const circle = document.createElement("span");
+        circle.innerText = num;
+        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 11px; margin-right: 4px;";
+        container.appendChild(circle);
+    });
+}
+
+// ==========================================
+// 4. LOGIK GRID TRAIN ID (KHAS UNTUK MODAL EDIT)
+// ==========================================
+function initEditTrainSelector() {
+    const trainGrid = document.getElementById("editTrainGrid");
+    if (!trainGrid) return;
+    trainGrid.innerHTML = "";
+    
+    for (let i = 1; i <= 58; i++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerText = i;
+        btn.style.cssText = "width: 100%; padding: 4px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold;";
+        
+        if (editSelectedTrains.includes(i)) {
+            btn.style.background = "#c8102e";
+            btn.style.color = "white";
+            btn.style.borderColor = "#c8102e";
+        }
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            toggleEditTrainSelection(i, btn);
+        };
+        trainGrid.appendChild(btn);
+    }
+}
+
+function toggleEditTrainDropdown(e) {
+    if (e) e.preventDefault();
+    const dd = document.getElementById("editTrainDropdown");
+    if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
+}
+
+function toggleEditTrainSelection(num, btn) {
+    const index = editSelectedTrains.indexOf(num);
+    if (index > -1) {
+        editSelectedTrains.splice(index, 1);
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#000";
+        btn.style.borderColor = "#ccc";
+    } else {
+        editSelectedTrains.push(num);
+        btn.style.background = "#c8102e";
+        btn.style.color = "white";
+        btn.style.borderColor = "#c8102e";
+    }
+    renderEditSelectedTrains();
+}
+
+function renderEditSelectedTrains() {
+    const container = document.getElementById("editSelectedTrainsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    
+    editSelectedTrains.sort((a,b) => a - b).forEach(num => {
+        const circle = document.createElement("span");
+        circle.innerText = num;
+        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px; margin-right: 4px;";
+        container.appendChild(circle);
+    });
+}
+
+// Klik luar kawasan untuk tutup dropdown penapis & edit
+document.addEventListener("click", function(event) {
+    const container = document.querySelector(".train-selector-container");
+    if (container && !container.contains(event.target)) {
+        const dd = document.getElementById("trainDropdown");
+        if (dd) dd.style.display = "none";
+    }
+    const editContainer = document.querySelector(".edit-train-container");
+    if (editContainer && !editContainer.contains(event.target)) {
+        const edd = document.getElementById("editTrainDropdown");
+        if (edd) edd.style.display = "none";
+    }
+});
+
+// ==========================================
+// 5. PENAPISAN OPTIONS (TEAM, ITEM & PIC UTAMA)
+// ==========================================
 async function updatePicFilterOptions() {
     const selectedTeam = document.getElementById("filterTeam").value;
     const url = selectedTeam ? `/api/pic?team=${encodeURIComponent(selectedTeam.trim())}` : "/api/pic";
@@ -216,8 +229,7 @@ async function updatePicFilterOptions() {
             if (Array.isArray(pic)) {
                 pic.forEach(p => {
                     let option = document.createElement("option");
-                    option.value = p.name;
-                    option.innerText = p.name;
+                    option.value = p.name; option.innerText = p.name;
                     picSelect.appendChild(option);
                 });
             }
@@ -242,13 +254,15 @@ async function loadFilterOptions(){
     } catch (err) { console.error(err); }
 }
 
-// Memuatkan rekod data ke dalam Jadual Konten
+// ==========================================
+// 6. PAPARAN DATA REKOD & TURUTAN DINAMIK 1-N
+// ==========================================
 async function loadRecords() {
     try {
         const res = await fetch("/api/workcontent");
         let data = await res.json();
 
-        // Semak kelayakan Admin
+        // Check Admin Hak Akses
         try {
             const userRes = await fetch("/api/auth/me");
             if (userRes.ok) {
@@ -261,7 +275,7 @@ async function loadRecords() {
             }
         } catch (e) { console.warn("Auth API error"); }
 
-        // Penapisan Dropdown sedia ada
+        // Filter berasaskan dropdown & tarikh
         const team = document.getElementById("filterTeam").value;
         const pic = document.getElementById("filterPIC").value;
         const item = document.getElementById("filterItem").value;
@@ -273,7 +287,7 @@ async function loadRecords() {
             data = data.filter(r => r.date >= selectedStartDate && r.date <= selectedEndDate);
         }
 
-        // Keperluan 1: Filter tambahan jika ada Train ID dipilih dari senarai grid
+        // Filter berasaskan Train Grid Selection Utama
         if (selectedTrains.length > 0) {
             data = data.filter(r => {
                 if (!r.trains) return false;
@@ -294,7 +308,7 @@ async function loadRecords() {
             return;
         }
 
-        // Keperluan 4: Pastikan ID paparan (Visual ID) tetap tersusun (1 ke N) secara dinamik
+        // Turutan ID tetap tersusun 1-N walaupun ada data tengah dipadam
         let visualId = 1;
 
         data.forEach(row => {
@@ -308,7 +322,7 @@ async function loadRecords() {
             }
 
             let trainsHTML = "-";
-            if (row.trains) {
+            if (row.trains && row.trains.trim() !== "") {
                 trainsHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 180px;">`;
                 row.trains.split(",").forEach(trainNum => {
                     if (trainNum.trim()) {
@@ -318,9 +332,8 @@ async function loadRecords() {
                 trainsHTML += `</div>`;
             }
             
-            // Masukkan paparan visualId berbanding row.id pangkalan data untuk turutan yang konsisten
             tr.innerHTML = `
-            <td>${visualId}</td> 
+            <td>${visualId}</td>
             <td>${row.team || '-'}</td>
             <td>${row.task || '-'}</td>
             <td>${row.date || '-'}</td>
@@ -331,20 +344,54 @@ async function loadRecords() {
             <td>${actionButtons}</td>
             `;
             table.appendChild(tr);
-            visualId++; 
+            visualId++;
         });
     } catch (err) { console.error("Error loading records:", err); }
 }
 
-// Fungsi Edit & Hapus (Kekal menggunakan `row.id` pangkalan data sebenar untuk ketepatan sistem backend)
-function editRecord(id, task, date, item, serial, trains, pic) {
+// ==========================================
+// 7. INTERAKSI ACTION: EDIT & DELETE REKOD
+// ==========================================
+async function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editRecordId").value = id;
     document.getElementById("editTask").value = task || "";
     document.getElementById("editDate").value = date || "";
     document.getElementById("editItem").value = item || "";
     document.getElementById("editSerial").value = serial || "";
-    document.getElementById("editTrains").value = trains || "";
-    document.getElementById("editPic").value = pic || "";
+
+    try {
+        const res = await fetch("/api/workcontent");
+        const allRecords = await res.json();
+        const currentRec = allRecords.find(r => r.id === id);
+        const currentTeam = currentRec ? currentRec.team : "";
+        document.getElementById("editRecordTeam").value = currentTeam;
+
+        // Load dropdown PIC yang sepadan dengan team rekod tersebut
+        const picRes = await fetch(currentTeam ? `/api/pic?team=${encodeURIComponent(currentTeam.trim())}` : "/api/pic");
+        const picList = await picRes.json();
+        const picSelect = document.getElementById("editPic");
+        
+        picSelect.innerHTML = '<option value="">Select PIC</option>';
+        if (Array.isArray(picList)) {
+            picList.forEach(p => {
+                let option = document.createElement("option");
+                option.value = p.name; option.innerText = p.name;
+                if(p.name === pic) option.selected = true;
+                picSelect.appendChild(option);
+            });
+        }
+    } catch (err) { console.error("Gagal memuatkan PIC untuk edit", err); }
+
+    // Parse data Train ID sedia ada ke dalam Grid Edit
+    if (trains && trains.trim() !== "" && trains !== "-") {
+        editSelectedTrains = trains.split(",").map(t => parseInt(t.trim())).filter(t => !isNaN(t));
+    } else {
+        editSelectedTrains = [];
+    }
+
+    initEditTrainSelector();
+    renderEditSelectedTrains();
+
     document.getElementById("editModal").style.display = "flex";
 }
 
@@ -357,14 +404,16 @@ async function saveEditedRecord() {
         date: document.getElementById("editDate").value,
         item: document.getElementById("editItem").value,
         serial: document.getElementById("editSerial").value,
-        trains: document.getElementById("editTrains").value,
+        trains: editSelectedTrains.join(","),
         pic: document.getElementById("editPic").value
     };
+
     const res = await fetch(`/api/workcontent/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
     });
+
     if (res.ok) {
         alert("Rekod berjaya dikemaskini!");
         closeEditModal();
@@ -379,7 +428,9 @@ async function deleteRecord(id) {
     }
 }
 
-// Eksport Data ke Excel (Mengekalkan data teratur mengikut turutan visual)
+// ==========================================
+// 8. EKSPORT KE EXCEL & CARIAN INPUT
+// ==========================================
 function exportToExcel() {
     const tableBody = document.getElementById("tableBody");
     const rows = tableBody.querySelectorAll("tr");
@@ -412,7 +463,6 @@ function exportToExcel() {
     XLSX.writeFile(workbook, "Work_Content_Records.xlsx");
 }
 
-// Carian input event listener
 document.getElementById("search").addEventListener("input", function (){
     let value = this.value.toLowerCase();
     let rows = document.querySelectorAll("#tableBody tr");
@@ -421,7 +471,9 @@ document.getElementById("search").addEventListener("input", function (){
     });
 });
 
-// Jalankan sistem
+// ==========================================
+// 9. EVENT LISTENERS DOM LOADED
+// ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
     initTrainSelector();
     await loadFilterOptions();
