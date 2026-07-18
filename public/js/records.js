@@ -1,4 +1,5 @@
 let selectedTrains = [];
+let editSelectedTrains = [];
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
@@ -24,9 +25,41 @@ function initTrainSelector() {
     }
 }
 
+function initEditTrainSelector() {
+    const trainGrid = document.getElementById("editTrainGrid");
+    if (!trainGrid) return;
+    trainGrid.innerHTML = "";
+    
+    for (let i = 1; i <= 58; i++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerText = i;
+        btn.style.cssText = "width: 100%; padding: 4px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold;";
+        
+        // Tandakan warna merah sekiranya nilai tren sedia ada aktif dalam rekod
+        if (editSelectedTrains.includes(i)) {
+            btn.style.background = "#c8102e";
+            btn.style.color = "white";
+        }
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            toggleEditTrainSelection(i, btn);
+        };
+        trainGrid.appendChild(btn);
+    }
+}
+
 function toggleTrainDropdown(e) {
     if (e) e.preventDefault();
     const dd = document.getElementById("trainDropdown");
+    if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
+}
+
+
+function toggleEditTrainDropdown(e) {
+    if (e) e.preventDefault();
+    const dd = document.getElementById("editTrainDropdown");
     if (dd) dd.style.display = dd.style.display === "none" ? "block" : "none";
 }
 
@@ -45,6 +78,20 @@ function toggleTrainSelection(num, btn) {
     loadRecords(); // Auto-filter semula bila train ditekan
 }
 
+function toggleEditTrainSelection(num, btn) {
+    const index = editSelectedTrains.indexOf(num);
+    if (index > -1) {
+        editSelectedTrains.splice(index, 1);
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#000";
+    } else {
+        editSelectedTrains.push(num);
+        btn.style.background = "#c8102e";
+        btn.style.color = "white";
+    }
+    renderEditSelectedTrains();
+}
+
 function renderSelectedTrains() {
     const container = document.getElementById("selectedTrainsContainer");
     if (!container) return;
@@ -58,11 +105,33 @@ function renderSelectedTrains() {
     });
 }
 
+function renderEditSelectedTrains() {
+    const container = document.getElementById("editSelectedTrainsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    
+    editSelectedTrains.sort((a,b) => a - b).forEach(num => {
+        const circle = document.createElement("span");
+        circle.innerText = num;
+        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px; margin-right: 4px;";
+        container.appendChild(circle);
+    });
+}
+
 // Tutup dropdown train jika klik luar kawasan
 document.addEventListener("click", function(event) {
     const container = document.querySelector(".train-selector-container");
     if (container && !container.contains(event.target)) {
         const dd = document.getElementById("trainDropdown");
+        if (dd) dd.style.display = "none";
+    }
+});
+
+// Tutup dropdown sekiranya klik di luar sempadan grid edit
+document.addEventListener("click", function(event) {
+    const container = document.querySelector(".edit-train-container");
+    if (container && !container.contains(event.target)) {
+        const dd = document.getElementById("editTrainDropdown");
         if (dd) dd.style.display = "none";
     }
 });
