@@ -47,17 +47,6 @@ db.run(`
     )
     `);
 
-//Autosave
-db.run(`CREATE TABLE IF NOT EXISTS work_records (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task TEXT,
-    date TEXT,
-    items TEXT,
-    serial_number TEXT,
-    team_name TEXT
-    )
-    `);
-
 // Admin Users
 const senaraiUser = [
     { name: "Elyas", pass: "123456789", team: "Team 1"  },

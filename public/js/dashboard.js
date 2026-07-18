@@ -169,35 +169,6 @@ async function submitWorkAndRefresh(e) {
         }
     }
 
-// Autosave Data
-const form = document.querySelector('#workContentForm'); // Ganti ikut id form anda
-
-form.addEventListener('submitWorkAndRefresh', function(e) {
-    e.preventDefault();
-
-    const payload = {
-        trains: document.querySelector('#trains').value,
-        task: document.querySelector('#task').value,
-        date: document.querySelector('#date').value,
-        items: document.querySelector('#itemInput').value,
-        serialNumber: document.querySelector('#serial').value
-    };
-
-    fetch('/api/save-work', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) {
-            Swal.fire('Berjaya! ✨', 'Data tugasan telah disimpan ke Records.', 'success');
-            loadRecordsTable(); 
-            form.reset();
-        }
-    });
-});
-
 // Jalankan fungsi ketika halaman selesai dimuatkan
 document.addEventListener("DOMContentLoaded", ()=>{
     loadStats();
