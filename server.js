@@ -1,11 +1,26 @@
-const itemsRoute = require("./routes/items");
-const picRoute = require("./routes/pic");
+require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 const bodyParser = require("body-parser");
 const session = require("express-session");
-const sqlite3 = require("sqlite3").verbose();
 const authRoute = require("./routes/auth");
+const itemsRoute = require("./routes/items");
+const picRoute = require("./routes/pic");
+
+const { Pool } = require("pg");
+
+const pool = new Pool({
+    connectionString: "postgres://neondb_owner:npg_1OewPz0yGrNS@ep-autumn-star-azxb02ph-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+}); 
+
+pool.query("SELECT version()", (err, res) => {
+    if (err) {
+        console.error("Gagal sambung ke Neon DB:", err);
+    } else {
+        console.log("Berjaya sambung ke Neon Cloud Database!");
+    }
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,28 +38,6 @@ app.use(
     })
 );
 
-const db = new sqlite3.Database("./database/database.db");
-
-db.serialize(() => {
-    db.run("ALTER TABLE work_content ADD COLUMN trains TEXT", (err) => {
-        if (err) {
-        } else {
-            console.log("'Trains' column successfully added.");
-        }
-    });
-
-    db.run(`
-    CREATE TABLE IF NOT EXISTS edit_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        record_id INTEGER,
-        username TEXT,
-        message TEXT,
-        status TEXT DEFAULT 'PENDING',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-});
-
 // PROTECT PAGE
 function checkLogin(req, res, next) {
     if (!req.session.user) {
@@ -61,17 +54,13 @@ app.get("/records.html", checkLogin, (req, res) =>{
     res.sendFile(path.join(__dirname, "public/records.html"));
 });
 
-// API ROUTES
 app.get("/api/records", checkLogin, (req, res) => {
-    db.all(
-        "SELECT * FROM work_content ORDER BY id DESC", [], 
-        (err, rows) => { 
-            if (err) {
-                return res.status(500).json({ success: false, message: err.message });
-            }
-            res.json(rows);
-         }        
-    );
+    pool.query("SELECT * FROM work_content ORDER BY id DESC", (err, result) => { 
+        if (err) {
+            return res.status(500).json({ success: false, message: err.message });
+        }
+        res.json(result.rows);
+    });
 });
 
 app.get("/api/auth/me", (req, res) => {
@@ -83,18 +72,20 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.get("/api/dashboard/stats", checkLogin, (req, res) => {
+    // Membetulkan query tarikh cara PostgreSQL
     const query = `
         SELECT 
-            SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now') THEN 1 ELSE 0 END) as totalMonth,
-            SUM(CASE WHEN strftime('%W', date) = strftime('%W', 'now') AND strftime('%Y', date) = strftime('%Y', 'now') THEN 1 ELSE 0 END) as totalWeek
+            SUM(CASE WHEN TO_CHAR(date::DATE, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN 1 ELSE 0 END) as totalmonth,
+            SUM(CASE WHEN TO_CHAR(date::DATE, 'WW') = TO_CHAR(NOW(), 'WW') AND TO_CHAR(date::DATE, 'YYYY') = TO_CHAR(NOW(), 'YYYY') THEN 1 ELSE 0 END) as totalweek
         FROM work_content
     `;
 
-    db.get(query, [], (err, row) => {
+    pool.query(query, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
+        const row = result.rows[0] || {};
         res.json({
-            totalMonth: row.totalMonth || 0,
-            totalWeek: row.totalWeek || 0
+            totalMonth: parseInt(row.totalmonth) || 0,
+            totalWeek: parseInt(row.totalweek) || 0
         });
     });
 });
@@ -111,12 +102,12 @@ app.use("/auth", authRoute);
 app.use("/api/items", itemsRoute);
 app.use("/api/pic", picRoute);
 
-// SAVE NEW WORK 
+// SAVE NEW WORK (Dah tukar ? ke $1-$7)
 app.post("/api/workcontent", checkLogin, (req, res) => {
     const { team, task, date, item, serial, pic, trains } = req.body;
-    const query = "INSERT INTO work_content (team, task, date, item, serial, pic, trains) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    const query = "INSERT INTO work_content (team, task, date, item, serial, pic, trains) VALUES ($1, $2, $3, $4, $5, $6, $7)";
     
-    db.run(query, [team, task, date, item, serial, pic, trains], function(err) {
+    pool.query(query, [team, task, date, item, serial, pic, trains], (err, result) => {
         if (err) return res.status(500).json({ success: false, message: err.message });
         res.json({ success: true, message: "Data Successfully saved!" });
     });
@@ -124,15 +115,15 @@ app.post("/api/workcontent", checkLogin, (req, res) => {
 
 // SAVE ALL RECORDS
 app.get("/api/workcontent", checkLogin, (req, res) => {
-    db.all("SELECT * FROM work_content ORDER BY id ASC", [], (err, rows) => {
+    pool.query("SELECT * FROM work_content ORDER BY id ASC", (err, result) => {
         if (err) { 
             return res.status(500).json({ error: err.message });
         }
-        res.json(rows);
-        });
+        res.json(result.rows);
+    });
 });
 
-// EDIT RECORDS
+// EDIT RECORDS (Dah tukar ? ke $1-$7)
 app.put("/api/workcontent/:id", checkLogin, (req, res) => {
     const id = req.params.id;
     const { trains, task, date, item, serial, pic } = req.body;
@@ -140,16 +131,16 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
     const query = `
         UPDATE work_content 
         SET     
-            task = COALESCE(NULLIF(?, ''), task),
-            date = COALESCE(NULLIF(?, ''), date),
-            item = COALESCE(NULLIF(?, ''), item),
-            serial = COALESCE(NULLIF(?, ''), serial),
-            pic = COALESCE(NULLIF(?, ''), pic),
-            trains = COALESCE(NULLIF(?, ''), trains)        
-        WHERE id = ?
+            task = $1,
+            date = $2,
+            item = $3,
+            serial = $4,
+            pic = $5,
+            trains = $6        
+        WHERE id = $7
     `;
     
-    db.run(query, [task, date, item, serial, pic, trains, id], function(err) {
+    pool.query(query, [task, date, item, serial, pic, trains, id], (err, result) => {
         if (err) {
             return res.status(500).json({ success: false, message: err.message });
         }
@@ -157,10 +148,10 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
     });
 });
 
-// DELETE RECORDS
+// DELETE RECORDS (Dah tukar ? ke $1)
 app.delete("/api/workcontent/:id", checkLogin, (req, res) => {
     const id = req.params.id;
-    db.run("DELETE FROM work_content WHERE id = ?", [id], function(err) {
+    pool.query("DELETE FROM work_content WHERE id = $1", [id], (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true, message: "Record deleted." });
     });
@@ -175,8 +166,8 @@ app.post("/api/edit-requests", checkLogin, (req, res) => {
         return res.status(400).json({ success: false, message: "Incomplete data."});
     }
 
-    const query = "INSERT INTO edit_requests (record_id, username, message) VALUES (?, ?, ?)";
-    db.run(query, [record_id, username, message], function(err) {
+    const query = "INSERT INTO edit_requests (record_id, username, message) VALUES ($1, $2, $3)";
+    pool.query(query, [record_id, username, message], (err, result) => {
         if (err) return res.status(500).json({success: false, message: err.message});
         res.json ({ success: true, message: "Notification has been sent to Admin." });
     });
@@ -191,18 +182,18 @@ app.get("/api/edit-requests", checkLogin, (req, res) => {
         return res.status(403).json ({ success: false, message: "Access Denied."});
     }
 
-    db.all("SELECT * FROM edit_requests WHERE status = 'PENDING' ORDER BY id DESC", [], (err, rows) => {
+    pool.query("SELECT * FROM edit_requests WHERE status = 'PENDING' ORDER BY id DESC", (err, result) => {
         if (err) return res.status(500).json ({ error: err.message });
-        res.json(rows);    
+        res.json(result.rows);    
     });
 });
 
 // Notification Status 
 app.post("/api/edit-requests/dismiss/:id", checkLogin, (req, res) => {
     const id = req.params.id;
-    db.run("UPDATE edit_requests SET status = 'DONE' WHERE id = ?", [id], function(err) {
+    pool.query("UPDATE edit_requests SET status = 'DONE' WHERE id = $1", [id], (err, result) => {
         if (err) return res.status(500).json ({ error: err.message });
-    res.json({ success: true });
+        res.json({ success: true });
     });
 });
 

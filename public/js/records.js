@@ -415,7 +415,7 @@ async function saveEditedRecord() {
     });
 
     if (res.ok) {
-        alert("Rekod berjaya dikemaskini!");
+        alert("Record successfully updated!");
         closeEditModal();
         loadRecords();
     }
