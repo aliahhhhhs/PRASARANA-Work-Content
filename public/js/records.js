@@ -3,6 +3,7 @@
 // ==========================================
 let selectedTrains = [];      // Untuk penapis (filter) jadual utama
 let editSelectedTrains = [];  // Untuk pemilihan di dalam Modal Edit
+let editSelectedPics = [];
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
@@ -359,6 +360,12 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editItem").value = item || "";
     document.getElementById("editSerial").value = serial || "";
 
+    if (pic && pic.trim() !== "" && pic !== "-") {
+        editSelectedPics = pic.split(",").map(p => p.trim());
+    } else {
+        editSelectedPics = [];
+    }
+
     try {
         const res = await fetch("/api/workcontent");
         const allRecords = await res.json();
@@ -366,19 +373,35 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
         const currentTeam = currentRec ? currentRec.team : "";
         document.getElementById("editRecordTeam").value = currentTeam;
 
-        // Load dropdown PIC yang sepadan dengan team rekod tersebut
+        // Load PIC Buttons dalam Modal Edit
         const picRes = await fetch(currentTeam ? `/api/pic?team=${encodeURIComponent(currentTeam.trim())}` : "/api/pic");
         const picList = await picRes.json();
-        const picSelect = document.getElementById("editPic");
         
-        picSelect.innerHTML = '<option value="">Select PIC</option>';
+        const editPicContainer = document.getElementById("editPicContainer") || document.getElementById("editPic");
+        if (editPicContainer) {
+            editPicContainer.innerHTML = "";
+            editPicContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;";
+
         if (Array.isArray(picList)) {
-            picList.forEach(p => {
-                let option = document.createElement("option");
-                option.value = p.name; option.innerText = p.name;
-                if(p.name === pic) option.selected = true;
-                picSelect.appendChild(option);
-            });
+                picList.forEach(p => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.innerText = p.name;
+                    btn.style.cssText = "padding: 4px 10px; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;";
+
+                    if (editSelectedPics.includes(p.name)) {
+                        btn.style.background = "#c8102e";
+                        btn.style.color = "white";
+                        btn.style.borderColor = "#c8102e";
+                    }
+
+                    btn.onclick = (e) => {
+                        e.preventDefault();
+                        toggleEditPicSelection(p.name, btn);
+                    };
+                    editPicContainer.appendChild(btn);
+                });
+            }
         }
     } catch (err) { console.error("Gagal memuatkan PIC untuk edit", err); }
 
@@ -395,29 +418,53 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editModal").style.display = "flex";
 }
 
+function toggleEditPicSelection(name, btn) {
+    const index = editSelectedPics.indexOf(name);
+    if (index > -1) {
+        editSelectedPics.splice(index, 1);
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#000";
+        btn.style.borderColor = "#ccc";
+    } else {
+        editSelectedPics.push(name);
+        btn.style.background = "#c8102e";
+        btn.style.color = "white";
+        btn.style.borderColor = "#c8102e";
+    }
+}
+
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
 async function saveEditedRecord() {
     const id = document.getElementById("editRecordId").value;
+
     const data = {
         task: document.getElementById("editTask").value,
         date: document.getElementById("editDate").value,
         item: document.getElementById("editItem").value,
         serial: document.getElementById("editSerial").value,
         trains: editSelectedTrains.join(","),
-        pic: document.getElementById("editPic").value
+        pic: editSelectedPics.join(", ") // Menggunakan array butang PIC yang di-highlight
     };
+    
+    try {
+        const res = await fetch(`/api/workcontent/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
 
-    const res = await fetch(`/api/workcontent/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
-
-    if (res.ok) {
-        alert("Record successfully updated!");
-        closeEditModal();
-        loadRecords();
+        if (res.ok) {
+            alert("Record successfully updated!");
+            closeEditModal();    // 1. Tutup modal serta-merta
+            await loadRecords(); // 2. Muat semula jadual tanpa refresh web
+        } else {
+            const errData = await res.json();
+            alert("Failed to update: " + (errData.message || "Unknown error"));
+        }
+    } catch (err) {
+        console.error("Error updating record:", err);
+        alert("An error occurred while saving.");
     }
 }
 

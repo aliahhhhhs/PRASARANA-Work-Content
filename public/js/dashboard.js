@@ -6,6 +6,7 @@ if(document.getElementById("teamDisplay")) {
 }
 
 let selectedTrains = [];
+let selectedPics = []; // Array global untuk simpan button PIC yang di-highlight
 
 // Membina grid pemilihan Train ID 1-58 secara dinamik
 function initTrainSelector() {
@@ -40,13 +41,11 @@ function toggleTrainDropdown(e) {
 function toggleTrainSelection(num, btn) {
     const index = selectedTrains.indexOf(num);
     if (index > -1) {
-        // Nyahpilih
         selectedTrains.splice(index, 1);
         btn.style.background = "#f8fafc";
         btn.style.color = "#000";
         btn.style.borderColor = "#ccc";
     } else {
-        // Pilih
         selectedTrains.push(num);
         btn.style.background = "#c8102e";
         btn.style.color = "white";
@@ -55,7 +54,7 @@ function toggleTrainSelection(num, btn) {
     renderSelectedTrains();
 }
 
-// Papar Train ID Terpilih dalam Bentuk Bulat (Bulatan Merah Kemas)
+// Papar Train ID Terpilih
 function renderSelectedTrains() {
     const container = document.getElementById("selectedTrainsContainer");
     if (!container) return;
@@ -80,94 +79,135 @@ document.addEventListener("click", function(event) {
 
 // Ambil statistik dari backend API
 async function loadStats(){
-    const res = await fetch('/api/dashboard/stats');
-    const data = await res.json();
-
-    document.getElementById("totalWeek").innerText = data.totalWeek;
-    document.getElementById("totalMonth").innerText = data.totalMonth;
+    try {
+        const res = await fetch('/api/dashboard/stats');
+        const data = await res.json();
+        document.getElementById("totalWeek").innerText = data.totalWeek;
+        document.getElementById("totalMonth").innerText = data.totalMonth;
+    } catch(err) {
+        console.error("Gagal muat stats:", err);
+    }
 }
 
-// Load senarai items & PIC daripada backend ke dalam elemen input form
+// Load senarai items & PIC (format button) daripada backend
 async function loadFormData() {
     if (!document.getElementById("itemsList")) return;
 
     // Load Items
-    const itemsRes = await fetch("/api/items");
-    const items = await itemsRes.json();
-    const datalist = document.getElementById("itemsList");
-    if (datalist){
-        datalist.innerHTML = ""; // Bersihkan list lama jika ada
-        items.forEach(i => {
-            let option = document.createElement("option");
-            option.value = i.item_name;
-            datalist.appendChild(option);
-    });
-    }
-    
-    // Load PIC
-    let currentTeam = localStorage.getItem("team") || "Team 1"; // take the active team
-    currentTeam = currentTeam.replace(/['"`]+/g,'').trim();
-
-    const picRes = await fetch(`/api/pic?team=${encodeURIComponent(currentTeam)}`);
-    const pic = await picRes.json();
-    const picSelect = document.getElementById("pic");
-    
-    if (picSelect){
-        picSelect.innerHTML = '<option value="">All PIC</option>' // Reset option asal
-        if (Array.isArray(pic)) {
-        pic.forEach(p => {
-            let option = document.createElement("option");
-            option.value = p.name;
-            option.innerText = p.name;
-            picSelect.appendChild(option);
+    try {
+        const itemsRes = await fetch("/api/items");
+        const items = await itemsRes.json();
+        const datalist = document.getElementById("itemsList");
+        if (datalist){
+            datalist.innerHTML = "";
+            items.forEach(i => {
+                let option = document.createElement("option");
+                option.value = i.item_name;
+                datalist.appendChild(option);
             });
         }
+    } catch(err) { console.error("Error loading items:", err); }
+    
+    // Load PIC Buttons
+    try {
+        let currentTeam = localStorage.getItem("team") || "Team 1";
+        currentTeam = currentTeam.replace(/['"`]+/g,'').trim();
+
+        const picRes = await fetch(`/api/pic?team=${encodeURIComponent(currentTeam)}`);
+        const pics = await picRes.json();
+        
+        const picContainer = document.getElementById("picContainer") || document.getElementById("pic");
+        
+        if (picContainer) {
+            picContainer.innerHTML = ""; 
+            picContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;";
+
+            if (Array.isArray(pics)) {
+                pics.forEach(p => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.innerText = p.name;
+                    btn.style.cssText = "padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;";
+                    
+                    if (selectedPics.includes(p.name)) {
+                        btn.style.background = "#c8102e";
+                        btn.style.color = "white";
+                        btn.style.borderColor = "#c8102e";
+                    }
+
+                    btn.onclick = (e) => {
+                        e.preventDefault();
+                        togglePicSelection(p.name, btn);
+                    };
+                    picContainer.appendChild(btn);
+                });
+            }
+        }
+    } catch(err) { console.error("Error loading PIC:", err); }
+}
+
+// Logik Pilih / Batal Pilihan PIC
+function togglePicSelection(name, btn) {
+    const index = selectedPics.indexOf(name);
+    if (index > -1) {
+        selectedPics.splice(index, 1);
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#000";
+        btn.style.borderColor = "#ccc";
+    } else {
+        selectedPics.push(name);
+        btn.style.background = "#c8102e";
+        btn.style.color = "white";
+        btn.style.borderColor = "#c8102e";
     }
 }
 
-// Fungsi hantar data kerja baru dan terus kemaskini statistik dashboard
+// Fungsi hantar data kerja baru
 async function submitWorkAndRefresh(e) {
     if (e) e.preventDefault();
+
     const data = {
         team: localStorage.getItem("team"),
         task: document.getElementById("task").value,
         date: document.getElementById("date").value,
         item: document.getElementById("itemInput").value,
         serial: document.getElementById("serial").value,
-        pic: document.getElementById("pic").value,
+        pic: selectedPics.join(", "), // Gabungkan pilihan nama PIC
         trains: selectedTrains.join(",")
     };
 
-    if(!data.task || !data.item || !data.pic){
-        alert("Please fill the Task, Items, and PIC!");
+    if(!data.task || !data.item || selectedPics.length === 0){
+        alert("Please fill the Task, Items, and select at least one PIC!");
         return;
     }
 
     try {
-    const res = await fetch("/api/workcontent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
+        const res = await fetch("/api/workcontent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
 
-    const result = await res.json();
-    alert(result.message);
-    
-    // Reset Form After Saved //
-    document.getElementById("task").value = "";
-    document.getElementById("itemInput").value = "";
-    document.getElementById("serial").value = "";
+        const result = await res.json();
+        alert(result.message);
+        
+        // Reset Form
+        document.getElementById("task").value = "";
+        document.getElementById("itemInput").value = "";
+        document.getElementById("serial").value = "";
 
-    // Reset status Train ID
-    selectedTrains = [];
-    renderSelectedTrains();
-    initTrainSelector();
+        // Reset Train ID & PIC
+        selectedTrains = [];
+        selectedPics = [];
+        renderSelectedTrains();
+        initTrainSelector();
+        loadFormData();
 
-    loadStats(); 
+        loadStats(); 
     } catch (err) {
-            console.error("Error saving data:", err);
-        }
+        console.error("Error saving data:", err);
     }
+}
 
 // Jalankan fungsi ketika halaman selesai dimuatkan
 document.addEventListener("DOMContentLoaded", ()=>{

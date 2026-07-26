@@ -12,7 +12,7 @@ const { Pool } = require("pg");
 
 const pool = new Pool({
     connectionString: "postgres://neondb_owner:npg_1OewPz0yGrNS@ep-autumn-star-azxb02ph-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
-}); 
+});
 
 pool.query("SELECT version()", (err, res) => {
     if (err) {
