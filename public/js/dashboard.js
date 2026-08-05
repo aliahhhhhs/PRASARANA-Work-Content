@@ -8,6 +8,13 @@ if(document.getElementById("teamDisplay")) {
 let selectedTrains = [];
 let selectedPics = []; // Array global untuk simpan button PIC yang di-highlight
 
+// Array tempat menyimpan pasangan item & serial number untuk Table Kanan
+let savedItemsData = [
+    { item: "", serial: "" } // sekurang-kurangnya 1 slot laluan asal
+]; 
+let activeRowIndex = 0; // Menentukan slot baris mana yang sedang diisi
+let isEditMode = false;
+
 // Membina grid pemilihan Train ID 1-58 secara dinamik
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
@@ -82,33 +89,15 @@ async function loadStats(){
     try {
         const res = await fetch('/api/dashboard/stats');
         const data = await res.json();
-        document.getElementById("totalWeek").innerText = data.totalWeek;
-        document.getElementById("totalMonth").innerText = data.totalMonth;
+        document.getElementById("totalWeek").innerText = data.totalWeek || 0;
+        document.getElementById("totalMonth").innerText = data.totalMonth || 0;
     } catch(err) {
         console.error("Gagal muat stats:", err);
     }
 }
 
-// Load senarai items & PIC (format button) daripada backend
+// Load PIC (format button) daripada backend
 async function loadFormData() {
-    if (!document.getElementById("itemsList")) return;
-
-    // Load Items
-    try {
-        const itemsRes = await fetch("/api/items");
-        const items = await itemsRes.json();
-        const datalist = document.getElementById("itemsList");
-        if (datalist){
-            datalist.innerHTML = "";
-            items.forEach(i => {
-                let option = document.createElement("option");
-                option.value = i.item_name;
-                datalist.appendChild(option);
-            });
-        }
-    } catch(err) { console.error("Error loading items:", err); }
-    
-    // Load PIC Buttons
     try {
         let currentTeam = localStorage.getItem("team") || "Team 1";
         currentTeam = currentTeam.replace(/['"`]+/g,'').trim();
@@ -116,7 +105,7 @@ async function loadFormData() {
         const picRes = await fetch(`/api/pic?team=${encodeURIComponent(currentTeam)}`);
         const pics = await picRes.json();
         
-        const picContainer = document.getElementById("picContainer") || document.getElementById("pic");
+        const picContainer = document.getElementById("picContainer");
         
         if (picContainer) {
             picContainer.innerHTML = ""; 
@@ -162,22 +151,121 @@ function togglePicSelection(name, btn) {
     }
 }
 
-// Fungsi hantar data kerja baru
+// =========================================================
+// LOGIK APLIKASI UNTUK TABLE KANAN (SAVED ITEMS & SERIALS)
+// =========================================================
+
+function renderRightTable() {
+    const container = document.getElementById("savedItemsList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Memastikan sekurang-kurangnya 5 slot dipaparkan mengikut mockup design
+    const totalSlotsToRender = Math.max(5, savedItemsData.length);
+
+    for (let i = 0; i < totalSlotsToRender; i++) {
+        const itemObj = savedItemsData[i] || { item: "", serial: "" };
+        
+        const rowBox = document.createElement("div");
+        rowBox.className = `right-item-row ${i === activeRowIndex ? 'active-row' : ''}`;
+        
+        // Tap mana-mana row di Table Kanan untuk edit / pilih slot tersebut
+        rowBox.onclick = () => selectRowToEdit(i);
+
+        rowBox.innerHTML = `
+            <div class="field-group">
+                <label>Items:</label>
+                <input type="text" value="${itemObj.item || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateRowData(${i}, 'item', this.value)" />
+            </div>
+            <div class="field-group">
+                <label>Serial Numbers:</label>
+                <input type="text" value="${itemObj.serial || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateRowData(${i}, 'serial', this.value)" />
+            </div>
+        `;
+
+        container.appendChild(rowBox);
+    }
+}
+
+function saveCurrentItem() {
+    const val = document.getElementById("itemInput").value.trim();
+    if (!savedItemsData[activeRowIndex]) {
+        savedItemsData[activeRowIndex] = { item: "", serial: "" };
+    }
+    savedItemsData[activeRowIndex].item = val;
+    renderRightTable();
+}
+
+function saveCurrentSerial() {
+    const val = document.getElementById("serial").value.trim();
+    if (!savedItemsData[activeRowIndex]) {
+        savedItemsData[activeRowIndex] = { item: "", serial: "" };
+    }
+    savedItemsData[activeRowIndex].serial = val;
+    renderRightTable();
+}
+
+function addNewItemRow() {
+    saveCurrentItem();
+    savedItemsData.push({ item: "", serial: "" });
+    activeRowIndex = savedItemsData.length - 1;
+    document.getElementById("itemInput").value = "";
+    document.getElementById("serial").value = "";
+    renderRightTable();
+}
+
+function addNewSerialRow() {
+    saveCurrentSerial();
+    savedItemsData.push({ item: "", serial: "" });
+    activeRowIndex = savedItemsData.length - 1;
+    document.getElementById("itemInput").value = "";
+    document.getElementById("serial").value = "";
+    renderRightTable();
+}
+
+function selectRowToEdit(index) {
+    activeRowIndex = index;
+    if (!savedItemsData[index]) {
+        savedItemsData[index] = { item: "", serial: "" };
+    }
+    document.getElementById("itemInput").value = savedItemsData[index].item || "";
+    document.getElementById("serial").value = savedItemsData[index].serial || "";
+    renderRightTable();
+}
+
+function updateRowData(index, key, value) {
+    if (!savedItemsData[index]) {
+        savedItemsData[index] = { item: "", serial: "" };
+    }
+    savedItemsData[index][key] = value;
+}
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    alert(isEditMode ? "Edit Mode Enabled: You can now edit Table Kanan directly." : "Edit Mode Disabled.");
+    renderRightTable();
+}
+
+// Fungsi hantar data kerja baru ke Records page
 async function submitWorkAndRefresh(e) {
     if (e) e.preventDefault();
+
+    // Mengumpul semua Items & Serials yang tersimpan di Table Kanan
+    const itemsList = savedItemsData.map(d => d.item).filter(Boolean).join(", ");
+    const serialsList = savedItemsData.map(d => d.serial).filter(Boolean).join(", ");
 
     const data = {
         team: localStorage.getItem("team"),
         task: document.getElementById("task").value,
         date: document.getElementById("date").value,
-        item: document.getElementById("itemInput").value,
-        serial: document.getElementById("serial").value,
-        pic: selectedPics.join(", "), // Gabungkan pilihan nama PIC
+        item: itemsList || document.getElementById("itemInput").value,
+        serial: serialsList || document.getElementById("serial").value,
+        pic: selectedPics.join(", "),
         trains: selectedTrains.join(",")
     };
 
-    if(!data.task || !data.item || selectedPics.length === 0){
-        alert("Please fill the Task, Items, and select at least one PIC!");
+    if(!data.task || selectedPics.length === 0){
+        alert("Please fill in the Task and select at least one PIC!");
         return;
     }
 
@@ -195,6 +283,8 @@ async function submitWorkAndRefresh(e) {
         document.getElementById("task").value = "";
         document.getElementById("itemInput").value = "";
         document.getElementById("serial").value = "";
+        savedItemsData = [{ item: "", serial: "" }];
+        activeRowIndex = 0;
 
         // Reset Train ID & PIC
         selectedTrains = [];
@@ -202,6 +292,7 @@ async function submitWorkAndRefresh(e) {
         renderSelectedTrains();
         initTrainSelector();
         loadFormData();
+        renderRightTable();
 
         loadStats(); 
     } catch (err) {
@@ -214,4 +305,5 @@ document.addEventListener("DOMContentLoaded", ()=>{
     loadStats();
     loadFormData();
     initTrainSelector();
+    renderRightTable();
 });

@@ -1,16 +1,17 @@
 // ==========================================
-// 1. PEMBOLEHUBAH GLOBAL & FLATPICKR
+// PEMBOLEHUBAH GLOBAL
 // ==========================================
-let selectedTrains = [];      // Untuk penapis (filter) jadual utama
-let editSelectedTrains = [];  // Untuk pemilihan di dalam Modal Edit
+let selectedTrains = [];
+let editSelectedTrains = [];
 let editSelectedPics = [];
+let editItemsList = []; // Array pasangan { item, serial } untuk Modal Edit
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
 let isAdminUser = false;
 
 // ==========================================
-// 2. SISTEM NOTIFIKASI ADMIN (CHATBOX EDIT)
+// SISTEM NOTIFIKASI ADMIN & EDIT REQUEST
 // ==========================================
 function toggleNotiDropdown(e) {
     if(e) e.preventDefault();
@@ -46,9 +47,7 @@ async function loadNotifications() {
             countEl.style.display = "none";
             container.innerHTML = "Tiada notifikasi baharu.";
         }
-    } catch(err) {
-        console.error(err);
-    }
+    } catch(err) { console.error(err); }
 }
 
 async function dismissNotification(id) {
@@ -78,7 +77,7 @@ async function submitEditRequest() {
 }
 
 // ==========================================
-// 3. LOGIK GRID TRAIN ID (PENAPIS UTAMA JADUAL)
+// LOGIK GRID TRAIN ID (UTAMA & EDIT)
 // ==========================================
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
@@ -138,9 +137,6 @@ function renderSelectedTrains() {
     });
 }
 
-// ==========================================
-// 4. LOGIK GRID TRAIN ID (KHAS UNTUK MODAL EDIT)
-// ==========================================
 function initEditTrainSelector() {
     const trainGrid = document.getElementById("editTrainGrid");
     if (!trainGrid) return;
@@ -201,7 +197,6 @@ function renderEditSelectedTrains() {
     });
 }
 
-// Klik luar kawasan untuk tutup dropdown penapis & edit
 document.addEventListener("click", function(event) {
     const container = document.querySelector(".train-selector-container");
     if (container && !container.contains(event.target)) {
@@ -216,7 +211,7 @@ document.addEventListener("click", function(event) {
 });
 
 // ==========================================
-// 5. PENAPISAN OPTIONS (TEAM, ITEM & PIC UTAMA)
+// PENAPISAN OPTIONS
 // ==========================================
 async function updatePicFilterOptions() {
     const selectedTeam = document.getElementById("filterTeam").value;
@@ -256,14 +251,13 @@ async function loadFilterOptions(){
 }
 
 // ==========================================
-// 6. PAPARAN DATA REKOD & TURUTAN DINAMIK 1-N
+// PAPARAN DATA REKOD
 // ==========================================
 async function loadRecords() {
     try {
         const res = await fetch("/api/workcontent");
         let data = await res.json();
 
-        // Check Admin Hak Akses
         try {
             const userRes = await fetch("/api/auth/me");
             if (userRes.ok) {
@@ -276,19 +270,17 @@ async function loadRecords() {
             }
         } catch (e) { console.warn("Auth API error"); }
 
-        // Filter berasaskan dropdown & tarikh
         const team = document.getElementById("filterTeam").value;
         const pic = document.getElementById("filterPIC").value;
         const item = document.getElementById("filterItem").value;
 
         if (team) data = data.filter(r => r.team === team);
         if (pic) data = data.filter(r => r.pic === pic);
-        if (item) data = data.filter(r => r.item === item);
+        if (item) data = data.filter(r => r.item && r.item.includes(item));
         if (selectedStartDate && selectedEndDate) {
             data = data.filter(r => r.date >= selectedStartDate && r.date <= selectedEndDate);
         }
 
-        // Filter berasaskan Train Grid Selection Utama
         if (selectedTrains.length > 0) {
             data = data.filter(r => {
                 if (!r.trains) return false;
@@ -305,11 +297,10 @@ async function loadRecords() {
         table.innerHTML = "";
 
         if (data.length === 0) {
-            table.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 15px;">Tiada rekod dijumpai.</td></tr>`;
+            table.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 15px;">Tiada rekod dijumpai.</td></tr>`;
             return;
         }
 
-        // Turutan ID tetap tersusun 1-N walaupun ada data tengah dipadam
         let visualId = 1;
 
         data.forEach(row => {
@@ -324,7 +315,7 @@ async function loadRecords() {
 
             let trainsHTML = "-";
             if (row.trains && row.trains.trim() !== "") {
-                trainsHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 180px;">`;
+                trainsHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;">`;
                 row.trains.split(",").forEach(trainNum => {
                     if (trainNum.trim()) {
                         trainsHTML += `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px;">${trainNum.trim()}</span>`;
@@ -332,14 +323,36 @@ async function loadRecords() {
                 });
                 trainsHTML += `</div>`;
             }
-            
+
+            const itemList = (row.item || "").split(",").map(s => s.trim());
+            const serialList = (row.serial || "").split(",").map(s => s.trim());
+            const maxPairs = Math.max(itemList.length, serialList.length);
+
+            let itemsAndSerialsHTML = `<div class="items-sketch-grid">`;
+            for (let i = 0; i < maxPairs; i++) {
+                const currentItem = itemList[i] || "-";
+                const currentSerial = serialList[i] || "-";
+                itemsAndSerialsHTML += `
+                    <div class="item-sketch-card">
+                        <div><b>Item:</b> ${currentItem}</div>
+                        <div><b>Serial Number:</b> ${currentSerial}</div>
+                    </div>
+                `;
+            }
+            itemsAndSerialsHTML += `</div>`;
+
+            let formattedDate = row.date || '-';
+            if (row.date && row.date.includes("-")) {
+                const parts = row.date.split("-");
+                if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+
             tr.innerHTML = `
             <td>${visualId}</td>
             <td>${row.team || '-'}</td>
             <td>${row.task || '-'}</td>
-            <td>${row.date || '-'}</td>
-            <td>${row.item || '-'}</td>
-            <td>${row.serial || '-'}</td>
+            <td>${formattedDate}</td>
+            <td>${itemsAndSerialsHTML}</td>
             <td>${trainsHTML}</td>
             <td>${row.pic || '-'}</td>
             <td>${actionButtons}</td>
@@ -351,14 +364,27 @@ async function loadRecords() {
 }
 
 // ==========================================
-// 7. INTERAKSI ACTION: EDIT & DELETE REKOD
+// INTERAKSI POPUP EDIT REKOD & SUB-MODAL ITEM
 // ==========================================
 async function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editRecordId").value = id;
     document.getElementById("editTask").value = task || "";
     document.getElementById("editDate").value = date || "";
-    document.getElementById("editItem").value = item || "";
-    document.getElementById("editSerial").value = serial || "";
+
+    // Parse pasangan Item & Serial ke dalam Array
+    const rawItems = (item || "").split(",").map(s => s.trim());
+    const rawSerials = (serial || "").split(",").map(s => s.trim());
+    const totalCount = Math.max(rawItems.length, rawSerials.length);
+
+    editItemsList = [];
+    for (let i = 0; i < totalCount; i++) {
+        editItemsList.push({
+            item: rawItems[i] || "",
+            serial: rawSerials[i] || ""
+        });
+    }
+
+    renderEditItemsList();
 
     if (pic && pic.trim() !== "" && pic !== "-") {
         editSelectedPics = pic.split(",").map(p => p.trim());
@@ -373,27 +399,18 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
         const currentTeam = currentRec ? currentRec.team : "";
         document.getElementById("editRecordTeam").value = currentTeam;
 
-        // Load PIC Buttons dalam Modal Edit
         const picRes = await fetch(currentTeam ? `/api/pic?team=${encodeURIComponent(currentTeam.trim())}` : "/api/pic");
         const picList = await picRes.json();
         
-        const editPicContainer = document.getElementById("editPicContainer") || document.getElementById("editPic");
+        const editPicContainer = document.getElementById("editPicContainer");
         if (editPicContainer) {
             editPicContainer.innerHTML = "";
-            editPicContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;";
-
-        if (Array.isArray(picList)) {
+            if (Array.isArray(picList)) {
                 picList.forEach(p => {
                     const btn = document.createElement("button");
                     btn.type = "button";
                     btn.innerText = p.name;
-                    btn.style.cssText = "padding: 4px 10px; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;";
-
-                    if (editSelectedPics.includes(p.name)) {
-                        btn.style.background = "#c8102e";
-                        btn.style.color = "white";
-                        btn.style.borderColor = "#c8102e";
-                    }
+                    btn.className = `btn-pic-rounded ${editSelectedPics.includes(p.name) ? 'active' : ''}`;
 
                     btn.onclick = (e) => {
                         e.preventDefault();
@@ -405,7 +422,6 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
         }
     } catch (err) { console.error("Gagal memuatkan PIC untuk edit", err); }
 
-    // Parse data Train ID sedia ada ke dalam Grid Edit
     if (trains && trains.trim() !== "" && trains !== "-") {
         editSelectedTrains = trains.split(",").map(t => parseInt(t.trim())).filter(t => !isNaN(t));
     } else {
@@ -418,18 +434,68 @@ async function editRecord(id, task, date, item, serial, trains, pic) {
     document.getElementById("editModal").style.display = "flex";
 }
 
+// Papar senarai butang Item & Serial di Modal Edit utama
+function renderEditItemsList() {
+    const container = document.getElementById("editItemsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    editItemsList.forEach((obj, index) => {
+        const itemBtn = document.createElement("div");
+        itemBtn.className = "edit-item-button-row";
+        itemBtn.onclick = () => openSubItemModal(index);
+
+        itemBtn.innerHTML = `
+            <span><b>Item:</b> ${obj.item || 'Item Name'}</span>
+            <span style="color: #64748b;">|</span>
+            <span><b>Serial Number:</b> ${obj.serial || '1234567890'}</span>
+        `;
+        container.appendChild(itemBtn);
+    });
+}
+
+// Buka Sub-modal Popup untuk edit Item/Serial individu
+function openSubItemModal(index) {
+    const obj = editItemsList[index];
+    document.getElementById("subItemIndex").value = index;
+    
+    document.getElementById("subCurrentItem").value = obj.item || "";
+    document.getElementById("subNewItem").value = "";
+    
+    document.getElementById("subCurrentSerial").value = obj.serial || "";
+    document.getElementById("subNewSerial").value = "";
+
+    document.getElementById("subItemModal").style.display = "flex";
+}
+
+function closeSubItemModal() {
+    document.getElementById("subItemModal").style.display = "none";
+}
+
+function saveSubItemChanges() {
+    const index = parseInt(document.getElementById("subItemIndex").value);
+    const newItem = document.getElementById("subNewItem").value.trim();
+    const newSerial = document.getElementById("subNewSerial").value.trim();
+
+    if (newItem !== "") {
+        editItemsList[index].item = newItem;
+    }
+    if (newSerial !== "") {
+        editItemsList[index].serial = newSerial;
+    }
+
+    renderEditItemsList();
+    closeSubItemModal();
+}
+
 function toggleEditPicSelection(name, btn) {
     const index = editSelectedPics.indexOf(name);
     if (index > -1) {
         editSelectedPics.splice(index, 1);
-        btn.style.background = "#f8fafc";
-        btn.style.color = "#000";
-        btn.style.borderColor = "#ccc";
+        btn.classList.remove("active");
     } else {
         editSelectedPics.push(name);
-        btn.style.background = "#c8102e";
-        btn.style.color = "white";
-        btn.style.borderColor = "#c8102e";
+        btn.classList.add("active");
     }
 }
 
@@ -438,13 +504,16 @@ function closeEditModal() { document.getElementById("editModal").style.display =
 async function saveEditedRecord() {
     const id = document.getElementById("editRecordId").value;
 
+    const itemsFormatted = editItemsList.map(d => d.item).filter(Boolean).join(", ");
+    const serialsFormatted = editItemsList.map(d => d.serial).filter(Boolean).join(", ");
+
     const data = {
         task: document.getElementById("editTask").value,
         date: document.getElementById("editDate").value,
-        item: document.getElementById("editItem").value,
-        serial: document.getElementById("editSerial").value,
+        item: itemsFormatted,
+        serial: serialsFormatted,
         trains: editSelectedTrains.join(","),
-        pic: editSelectedPics.join(", ") // Menggunakan array butang PIC yang di-highlight
+        pic: editSelectedPics.join(", ")
     };
     
     try {
@@ -456,8 +525,8 @@ async function saveEditedRecord() {
 
         if (res.ok) {
             alert("Record successfully updated!");
-            closeEditModal();    // 1. Tutup modal serta-merta
-            await loadRecords(); // 2. Muat semula jadual tanpa refresh web
+            closeEditModal();
+            await loadRecords();
         } else {
             const errData = await res.json();
             alert("Failed to update: " + (errData.message || "Unknown error"));
@@ -476,7 +545,7 @@ async function deleteRecord(id) {
 }
 
 // ==========================================
-// 8. EKSPORT KE EXCEL & CARIAN INPUT
+// EKSPORT KE EXCEL & CARIAN
 // ==========================================
 function exportToExcel() {
     const tableBody = document.getElementById("tableBody");
@@ -484,23 +553,35 @@ function exportToExcel() {
     if (rows.length === 0 || (rows.length === 1 && rows[0].innerText.includes("Tiada rekod"))) {
         alert("Tiada data untuk dieksport!"); return;
     }
-    const excelData = [["ID", "Team", "Task", "Date", "Item", "Serial", "Train ID(s)", "PIC"]];
+    const excelData = [["ID", "Team", "Task", "Date", "Items & Serial Numbers", "Train ID(s)", "PIC"]];
     rows.forEach(row => {
         if (row.style.display !== "none") {
             const cells = row.querySelectorAll("td");
+            
+            const cards = cells[4].querySelectorAll(".item-sketch-card");
+            let itemsSerialsText = "";
+            if (cards.length > 0) {
+                const textArr = [];
+                cards.forEach(c => textArr.push(c.innerText.replace(/\n/g, " ")));
+                itemsSerialsText = textArr.join(" | ");
+            } else {
+                itemsSerialsText = cells[4].innerText.trim();
+            }
+
             let trainText = "";
-            const trainSpans = cells[6].querySelectorAll("span");
+            const trainSpans = cells[5].querySelectorAll("span");
             if (trainSpans.length > 0) {
                 const nums = [];
                 trainSpans.forEach(span => nums.push(span.innerText.trim()));
                 trainText = nums.join(",");
             } else {
-                trainText = cells[6].innerText.trim();
+                trainText = cells[5].innerText.trim();
                 if (trainText === "-") trainText = "";
             }
+
             excelData.push([
                 cells[0].innerText, cells[1].innerText, cells[2].innerText, cells[3].innerText,
-                cells[4].innerText, cells[5].innerText, trainText, cells[7].innerText
+                itemsSerialsText, trainText, cells[6].innerText
             ]);
         }
     });
@@ -519,7 +600,7 @@ document.getElementById("search").addEventListener("input", function (){
 });
 
 // ==========================================
-// 9. EVENT LISTENERS DOM LOADED
+// EVENT LISTENERS DOM LOADED
 // ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
     initTrainSelector();
