@@ -14,6 +14,9 @@ let currentDraftData = {
     serialOut: ""
 };
 
+let uploadedFileBefore = "";
+let uploadedFileAfter = "";
+
 let savedItemsData = [];
 let activeRowIndex = 0;
 let isEditMode = false;
@@ -42,7 +45,6 @@ function initTrainSelector() {
 
 function selectCoach(coachCode) {
     if (pendingTrainNumber !== null) {
-        // Replace existing entry if same train ID selected, otherwise push
         const existingIdx = selectedTrains.findIndex(t => t.train === pendingTrainNumber);
         if (existingIdx > -1) {
             selectedTrains[existingIdx].coach = coachCode;
@@ -133,7 +135,6 @@ function commitCurrentAndReset() {
     }
 
     savedItemsData.push({ ...currentDraftData });
-    // Reset inputs
     currentDraftData = { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
     renderRightTable();
 }
@@ -211,6 +212,12 @@ function handleFileChange(event, targetPreviewId) {
         reader.onload = function(e) {
             const container = document.getElementById(targetPreviewId);
             container.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${e.target.result}', event)" />`;
+            
+            if (targetPreviewId === 'previewBefore') {
+                uploadedFileBefore = e.target.result;
+            } else if (targetPreviewId === 'previewAfter') {
+                uploadedFileAfter = e.target.result;
+            }
         };
         reader.readAsDataURL(file);
     }
@@ -276,22 +283,30 @@ async function loadStats(){
 async function submitWorkAndRefresh(e) {
     if (e) e.preventDefault();
 
+    const taskVal = document.getElementById("task").value.trim();
+    if (!taskVal) {
+        alert("Sila isi ruangan Task terlebih dahulu!");
+        return;
+    }
+
+    if (selectedPics.length === 0) {
+        alert("Sila pilih sekurang-kurangnya seorang PIC!");
+        return;
+    }
+
     const trainsFormatted = selectedTrains.map(t => `${t.train}:${t.coach}`).join(",");
     const data = {
-        team: localStorage.getItem("team"),
-        task: document.getElementById("task").value,
+        team: localStorage.getItem("team") || "Team 1",
+        task: taskVal,
         date: document.getElementById("date").value,
         savedItems: savedItemsData,
         pic: selectedPics.join(", "),
         trains: trainsFormatted,
         findingProblem: document.getElementById("findingProblem").value,
-        troubleshootMethod: document.getElementById("troubleshootMethod").value
+        troubleshootMethod: document.getElementById("troubleshootMethod").value,
+        fileBefore: uploadedFileBefore,
+        fileAfter: uploadedFileAfter
     };
-
-    if(!data.task || selectedPics.length === 0){
-        alert("Please fill in the Task and select at least one PIC!");
-        return;
-    }
 
     try {
         const res = await fetch("/api/workcontent", {
@@ -301,19 +316,29 @@ async function submitWorkAndRefresh(e) {
         });
 
         const result = await res.json();
-        alert(result.message || "Data saved successfully!");
-        
-        // Reset Form
-        document.getElementById("workContentForm").reset();
-        savedItemsData = [];
-        selectedTrains = [];
-        selectedPics = [];
-        renderSelectedTrains();
-        renderRightTable();
-        loadFormData();
-        loadStats();
+        if (result.success) {
+            alert(result.message || "Data successfully saved!");
+            
+            // Reset Form & Temporary States
+            document.getElementById("workContentForm").reset();
+            savedItemsData = [];
+            selectedTrains = [];
+            selectedPics = [];
+            uploadedFileBefore = "";
+            uploadedFileAfter = "";
+            document.getElementById("previewBefore").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
+            document.getElementById("previewAfter").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
+            
+            renderSelectedTrains();
+            renderRightTable();
+            loadFormData();
+            loadStats();
+        } else {
+            alert("Ralat menyimpan data: " + (result.message || "Unknown error"));
+        }
     } catch (err) {
         console.error("Error saving data:", err);
+        alert("Gagal menghantar data ke server. Sila semak sambungan rangkaian.");
     }
 }
 

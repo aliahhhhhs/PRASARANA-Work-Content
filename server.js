@@ -26,8 +26,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true}));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
 
 app.use(
     session({
@@ -103,18 +103,17 @@ app.use("/api/pic", picRoute);
 
 // SAVE NEW WORK
 app.post("/api/workcontent", checkLogin, (req, res) => {
-    const { team, task, date, savedItems, pic, trains, findingProblem, troubleshootMethod } = req.body;
+    const { team, task, date, savedItems, pic, trains, findingProblem, troubleshootMethod, fileBefore, fileAfter } = req.body;
     
-    // Serializing savedItems array to JSON string for Postgres storage
     const itemStr = JSON.stringify(savedItems || []);
     const serialStr = JSON.stringify(savedItems || []);
 
     const query = `
-        INSERT INTO work_content (team, task, date, item, serial, pic, trains, finding_problem, troubleshoot_method) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO work_content (team, task, date, item, serial, pic, trains, finding_problem, troubleshoot_method, file_before, file_after) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `;
     
-    pool.query(query, [team, task, date, itemStr, serialStr, pic, trains, findingProblem, troubleshootMethod], (err, result) => {
+    pool.query(query, [team, task, date, itemStr, serialStr, pic, trains, findingProblem, troubleshootMethod, fileBefore, fileAfter], (err, result) => {
         if (err) return res.status(500).json({ success: false, message: err.message });
         res.json({ success: true, message: "Data successfully saved!" });
     });

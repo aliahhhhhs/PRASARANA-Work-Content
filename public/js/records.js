@@ -330,11 +330,45 @@ function openReportModal(recordId) {
 
     document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
     document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
+    
+    const beforeContainer = document.getElementById("modalReportBefore");
+    const afterContainer = document.getElementById("modalReportAfter");
+
+    if (rec.file_before) {
+        beforeContainer.innerHTML = `<img src="${rec.file_before}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${rec.file_before}', event)" />`;
+    } else {
+        beforeContainer.innerHTML = "No File";
+    }
+
+    if (rec.file_after) {
+        afterContainer.innerHTML = `<img src="${rec.file_after}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${rec.file_after}', event)" />`;
+    } else {
+        afterContainer.innerHTML = "No File";
+    }
+
     document.getElementById("reportModal").style.display = "flex";
 }
 
 function closeReportModal() {
     document.getElementById("reportModal").style.display = "none";
+}
+
+// POPUP VIEW GAMBAR BESAR
+function openImagePreview(src, event) {
+    if (event) event.stopPropagation();
+    const modal = document.getElementById("imagePreviewModal");
+    const imgSrc = document.getElementById("previewImageSrc");
+    if (modal && imgSrc) {
+        imgSrc.src = src;
+        modal.style.display = "flex";
+    }
+}
+
+function closeImagePreview() {
+    const modal = document.getElementById("imagePreviewModal");
+    if (modal) {
+        modal.style.display = "none";
+    }
 }
 
 // EDIT RECORD POPUP WIREFRAME HANDLERS
