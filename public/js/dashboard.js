@@ -1,21 +1,24 @@
-// Memaparkan nama pasukan (team) pada komponen dashboard
 const team = localStorage.getItem("team");
 document.getElementById("teamName").innerText = team || "No Team Selected";
-if(document.getElementById("teamDisplay")) {
-    document.getElementById("teamDisplay").innerText = "Team: " + (team || "None");
-}
 
-let selectedTrains = [];
-let selectedPics = []; // Array global untuk simpan button PIC yang di-highlight
+let selectedTrains = []; // Array of objects: { train: 1, coach: "M1" }
+let selectedPics = [];
+let pendingTrainNumber = null;
+let activeMode = null; // "IN" or "OUT"
 
-// Array tempat menyimpan pasangan item & serial number untuk Table Kanan
-let savedItemsData = [
-    { item: "", serial: "" } // sekurang-kurangnya 1 slot laluan asal
-]; 
-let activeRowIndex = 0; // Menentukan slot baris mana yang sedang diisi
+// Temporary store for current IN/OUT pair before tapping Add More
+let currentDraftData = {
+    itemIn: "",
+    serialIn: "",
+    itemOut: "",
+    serialOut: ""
+};
+
+let savedItemsData = [];
+let activeRowIndex = 0;
 let isEditMode = false;
 
-// Membina grid pemilihan Train ID 1-58 secara dinamik
+// Initialize Train ID grid (1 to 58)
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
     if (!trainGrid) return;
@@ -25,17 +28,33 @@ function initTrainSelector() {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.innerText = i;
-        btn.style.cssText = "width: 100%; padding: 6px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-family: inherit;";
+        btn.className = "train-num-btn";
         
         btn.onclick = (e) => {
             e.preventDefault();
-            toggleTrainSelection(i, btn);
+            pendingTrainNumber = i;
+            toggleTrainDropdown();
+            document.getElementById("coachModal").style.display = "flex";
         };
         trainGrid.appendChild(btn);
     }
 }
 
-// Buka / Tutup Dropdown Grid Train ID
+function selectCoach(coachCode) {
+    if (pendingTrainNumber !== null) {
+        // Replace existing entry if same train ID selected, otherwise push
+        const existingIdx = selectedTrains.findIndex(t => t.train === pendingTrainNumber);
+        if (existingIdx > -1) {
+            selectedTrains[existingIdx].coach = coachCode;
+        } else {
+            selectedTrains.push({ train: pendingTrainNumber, coach: coachCode });
+        }
+        pendingTrainNumber = null;
+        document.getElementById("coachModal").style.display = "none";
+        renderSelectedTrains();
+    }
+}
+
 function toggleTrainDropdown(e) {
     if (e) e.preventDefault();
     const dd = document.getElementById("trainDropdown");
@@ -44,59 +63,170 @@ function toggleTrainDropdown(e) {
     }
 }
 
-// Logik Pilih / Batal Pilihan Train ID
-function toggleTrainSelection(num, btn) {
-    const index = selectedTrains.indexOf(num);
-    if (index > -1) {
-        selectedTrains.splice(index, 1);
-        btn.style.background = "#f8fafc";
-        btn.style.color = "#000";
-        btn.style.borderColor = "#ccc";
-    } else {
-        selectedTrains.push(num);
-        btn.style.background = "#c8102e";
-        btn.style.color = "white";
-        btn.style.borderColor = "#c8102e";
-    }
-    renderSelectedTrains();
-}
-
-// Papar Train ID Terpilih
 function renderSelectedTrains() {
     const container = document.getElementById("selectedTrainsContainer");
     if (!container) return;
     container.innerHTML = "";
     
-    selectedTrains.sort((a,b) => a - b).forEach(num => {
-        const circle = document.createElement("div");
-        circle.innerText = num;
-        circle.style.cssText = "display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); font-family: sans-serif;";
-        container.appendChild(circle);
+    selectedTrains.sort((a,b) => a.train - b.train).forEach(item => {
+        const pill = document.createElement("div");
+        pill.className = "selected-train-pill";
+        pill.innerText = `${item.train} : ${item.coach}`;
+        pill.onclick = () => removeTrainSelection(item.train);
+        container.appendChild(pill);
     });
 }
 
-// Tutup dropdown sekiranya pengguna mengetik di luar kawasan grid
-document.addEventListener("click", function(event) {
-    const container = document.querySelector(".train-selector-container");
-    if (container && !container.contains(event.target)) {
-        const dd = document.getElementById("trainDropdown");
-        if (dd) dd.style.display = "none";
-    }
-});
+function removeTrainSelection(trainNum) {
+    selectedTrains = selectedTrains.filter(t => t.train !== trainNum);
+    renderSelectedTrains();
+}
 
-// Ambil statistik dari backend API
-async function loadStats(){
-    try {
-        const res = await fetch('/api/dashboard/stats');
-        const data = await res.json();
-        document.getElementById("totalWeek").innerText = data.totalWeek || 0;
-        document.getElementById("totalMonth").innerText = data.totalMonth || 0;
-    } catch(err) {
-        console.error("Gagal muat stats:", err);
+// IN / OUT Modal Handlers
+function openItemModal(mode) {
+    activeMode = mode;
+    const modal = document.getElementById("itemModal");
+    const title = document.getElementById("modalTitle");
+    const lblItem = document.getElementById("lblItemName");
+    const lblSerial = document.getElementById("lblSerialName");
+    const itemInput = document.getElementById("modalItemInput");
+    const serialInput = document.getElementById("modalSerialInput");
+
+    if (mode === 'IN') {
+        title.innerText = "Item In";
+        lblItem.innerText = "Item In";
+        lblSerial.innerText = "Serial Number In";
+        itemInput.value = currentDraftData.itemIn;
+        serialInput.value = currentDraftData.serialIn;
+    } else {
+        title.innerText = "Item Out";
+        lblItem.innerText = "Item Out";
+        lblSerial.innerText = "Serial Number Out";
+        itemInput.value = currentDraftData.itemOut;
+        serialInput.value = currentDraftData.serialOut;
+    }
+    modal.style.display = "flex";
+}
+
+function closeItemModal() {
+    document.getElementById("itemModal").style.display = "none";
+}
+
+function saveItemModalData() {
+    const itemVal = document.getElementById("modalItemInput").value.trim();
+    const serialVal = document.getElementById("modalSerialInput").value.trim();
+
+    if (activeMode === 'IN') {
+        currentDraftData.itemIn = itemVal;
+        currentDraftData.serialIn = serialVal;
+    } else {
+        currentDraftData.itemOut = itemVal;
+        currentDraftData.serialOut = serialVal;
+    }
+    closeItemModal();
+}
+
+function commitCurrentAndReset() {
+    if (!currentDraftData.itemIn && !currentDraftData.serialIn && !currentDraftData.itemOut && !currentDraftData.serialOut) {
+        alert("Please enter IN or OUT details first.");
+        return;
+    }
+
+    savedItemsData.push({ ...currentDraftData });
+    // Reset inputs
+    currentDraftData = { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
+    renderRightTable();
+}
+
+function renderRightTable() {
+    const container = document.getElementById("savedItemsList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const slotsToRender = Math.max(1, savedItemsData.length);
+
+    for (let i = 0; i < slotsToRender; i++) {
+        const data = savedItemsData[i] || { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
+        const card = document.createElement("div");
+        card.className = "saved-card-pair";
+
+        card.innerHTML = `
+            <div class="saved-sub-box">
+                <div class="field-row">
+                    <label>Item In:</label>
+                    <input type="text" value="${data.itemIn || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateSavedRow(${i}, 'itemIn', this.value)" />
+                </div>
+                <div class="field-row">
+                    <label>S/N In:</label>
+                    <input type="text" value="${data.serialIn || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateSavedRow(${i}, 'serialIn', this.value)" />
+                </div>
+            </div>
+            <div class="saved-sub-box">
+                <div class="field-row">
+                    <label>Item Out:</label>
+                    <input type="text" value="${data.itemOut || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateSavedRow(${i}, 'itemOut', this.value)" />
+                </div>
+                <div class="field-row">
+                    <label>S/N Out:</label>
+                    <input type="text" value="${data.serialOut || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateSavedRow(${i}, 'serialOut', this.value)" />
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
     }
 }
 
-// Load PIC (format button) daripada backend
+function updateSavedRow(index, key, value) {
+    if (savedItemsData[index]) {
+        savedItemsData[index][key] = value;
+    }
+}
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    alert(isEditMode ? "Edit Mode Enabled: You can now edit the saved items directly." : "Edit Mode Disabled.");
+    renderRightTable();
+}
+
+// Report Textarea expand/shrink mechanics
+function expandReportTextarea(el) {
+    el.classList.add("expanded");
+}
+
+function shrinkReportTextarea(el) {
+    if (!el.value.trim()) {
+        el.classList.remove("expanded");
+    }
+}
+
+// File Upload & Preview
+function triggerFileInput(id) {
+    document.getElementById(id).click();
+}
+
+function handleFileChange(event, targetPreviewId) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const container = document.getElementById(targetPreviewId);
+            container.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${e.target.result}', event)" />`;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function openImagePreview(src, event) {
+    event.stopPropagation();
+    document.getElementById("previewImageSrc").src = src;
+    document.getElementById("imagePreviewModal").style.display = "flex";
+}
+
+function closeImagePreview() {
+    document.getElementById("imagePreviewModal").style.display = "none";
+}
+
+// Load PICs & Stats
 async function loadFormData() {
     try {
         let currentTeam = localStorage.getItem("team") || "Team 1";
@@ -104,164 +234,58 @@ async function loadFormData() {
 
         const picRes = await fetch(`/api/pic?team=${encodeURIComponent(currentTeam)}`);
         const pics = await picRes.json();
-        
         const picContainer = document.getElementById("picContainer");
         
-        if (picContainer) {
-            picContainer.innerHTML = ""; 
-            picContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;";
-
-            if (Array.isArray(pics)) {
-                pics.forEach(p => {
-                    const btn = document.createElement("button");
-                    btn.type = "button";
-                    btn.innerText = p.name;
-                    btn.style.cssText = "padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;";
-                    
-                    if (selectedPics.includes(p.name)) {
-                        btn.style.background = "#c8102e";
-                        btn.style.color = "white";
-                        btn.style.borderColor = "#c8102e";
-                    }
-
-                    btn.onclick = (e) => {
-                        e.preventDefault();
-                        togglePicSelection(p.name, btn);
-                    };
-                    picContainer.appendChild(btn);
-                });
-            }
+        if (picContainer && Array.isArray(pics)) {
+            picContainer.innerHTML = "";
+            pics.forEach(p => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.innerText = p.name;
+                btn.className = `btn-pic-pill ${selectedPics.includes(p.name) ? 'active' : ''}`;
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    togglePicSelection(p.name, btn);
+                };
+                picContainer.appendChild(btn);
+            });
         }
     } catch(err) { console.error("Error loading PIC:", err); }
 }
 
-// Logik Pilih / Batal Pilihan PIC
 function togglePicSelection(name, btn) {
     const index = selectedPics.indexOf(name);
     if (index > -1) {
         selectedPics.splice(index, 1);
-        btn.style.background = "#f8fafc";
-        btn.style.color = "#000";
-        btn.style.borderColor = "#ccc";
+        btn.classList.remove("active");
     } else {
         selectedPics.push(name);
-        btn.style.background = "#c8102e";
-        btn.style.color = "white";
-        btn.style.borderColor = "#c8102e";
+        btn.classList.add("active");
     }
 }
 
-// =========================================================
-// LOGIK APLIKASI UNTUK TABLE KANAN (SAVED ITEMS & SERIALS)
-// =========================================================
-
-function renderRightTable() {
-    const container = document.getElementById("savedItemsList");
-    if (!container) return;
-    container.innerHTML = "";
-
-    // Memastikan sekurang-kurangnya 5 slot dipaparkan mengikut mockup design
-    const totalSlotsToRender = Math.max(5, savedItemsData.length);
-
-    for (let i = 0; i < totalSlotsToRender; i++) {
-        const itemObj = savedItemsData[i] || { item: "", serial: "" };
-        
-        const rowBox = document.createElement("div");
-        rowBox.className = `right-item-row ${i === activeRowIndex ? 'active-row' : ''}`;
-        
-        // Tap mana-mana row di Table Kanan untuk edit / pilih slot tersebut
-        rowBox.onclick = () => selectRowToEdit(i);
-
-        rowBox.innerHTML = `
-            <div class="field-group">
-                <label>Items:</label>
-                <input type="text" value="${itemObj.item || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateRowData(${i}, 'item', this.value)" />
-            </div>
-            <div class="field-group">
-                <label>Serial Numbers:</label>
-                <input type="text" value="${itemObj.serial || ''}" ${isEditMode ? '' : 'readonly'} onchange="updateRowData(${i}, 'serial', this.value)" />
-            </div>
-        `;
-
-        container.appendChild(rowBox);
-    }
+async function loadStats(){
+    try {
+        const res = await fetch('/api/dashboard/stats');
+        const data = await res.json();
+        document.getElementById("totalWeek").innerText = data.totalWeek || 0;
+        document.getElementById("totalMonth").innerText = data.totalMonth || 0;
+    } catch(err) { console.error("Gagal muat stats:", err); }
 }
 
-function saveCurrentItem() {
-    const val = document.getElementById("itemInput").value.trim();
-    if (!savedItemsData[activeRowIndex]) {
-        savedItemsData[activeRowIndex] = { item: "", serial: "" };
-    }
-    savedItemsData[activeRowIndex].item = val;
-    renderRightTable();
-}
-
-function saveCurrentSerial() {
-    const val = document.getElementById("serial").value.trim();
-    if (!savedItemsData[activeRowIndex]) {
-        savedItemsData[activeRowIndex] = { item: "", serial: "" };
-    }
-    savedItemsData[activeRowIndex].serial = val;
-    renderRightTable();
-}
-
-function addNewItemRow() {
-    saveCurrentItem();
-    savedItemsData.push({ item: "", serial: "" });
-    activeRowIndex = savedItemsData.length - 1;
-    document.getElementById("itemInput").value = "";
-    document.getElementById("serial").value = "";
-    renderRightTable();
-}
-
-function addNewSerialRow() {
-    saveCurrentSerial();
-    savedItemsData.push({ item: "", serial: "" });
-    activeRowIndex = savedItemsData.length - 1;
-    document.getElementById("itemInput").value = "";
-    document.getElementById("serial").value = "";
-    renderRightTable();
-}
-
-function selectRowToEdit(index) {
-    activeRowIndex = index;
-    if (!savedItemsData[index]) {
-        savedItemsData[index] = { item: "", serial: "" };
-    }
-    document.getElementById("itemInput").value = savedItemsData[index].item || "";
-    document.getElementById("serial").value = savedItemsData[index].serial || "";
-    renderRightTable();
-}
-
-function updateRowData(index, key, value) {
-    if (!savedItemsData[index]) {
-        savedItemsData[index] = { item: "", serial: "" };
-    }
-    savedItemsData[index][key] = value;
-}
-
-function toggleEditMode() {
-    isEditMode = !isEditMode;
-    alert(isEditMode ? "Edit Mode Enabled: You can now edit Table Kanan directly." : "Edit Mode Disabled.");
-    renderRightTable();
-}
-
-// Fungsi hantar data kerja baru ke Records page
 async function submitWorkAndRefresh(e) {
     if (e) e.preventDefault();
 
-    // Mengumpul semua Items & Serials yang tersimpan di Table Kanan
-    const itemsList = savedItemsData.map(d => d.item).filter(Boolean).join(", ");
-    const serialsList = savedItemsData.map(d => d.serial).filter(Boolean).join(", ");
-
+    const trainsFormatted = selectedTrains.map(t => `${t.train}:${t.coach}`).join(",");
     const data = {
         team: localStorage.getItem("team"),
         task: document.getElementById("task").value,
         date: document.getElementById("date").value,
-        item: itemsList || document.getElementById("itemInput").value,
-        serial: serialsList || document.getElementById("serial").value,
+        savedItems: savedItemsData,
         pic: selectedPics.join(", "),
-        trains: selectedTrains.join(",")
+        trains: trainsFormatted,
+        findingProblem: document.getElementById("findingProblem").value,
+        troubleshootMethod: document.getElementById("troubleshootMethod").value
     };
 
     if(!data.task || selectedPics.length === 0){
@@ -277,30 +301,22 @@ async function submitWorkAndRefresh(e) {
         });
 
         const result = await res.json();
-        alert(result.message);
+        alert(result.message || "Data saved successfully!");
         
         // Reset Form
-        document.getElementById("task").value = "";
-        document.getElementById("itemInput").value = "";
-        document.getElementById("serial").value = "";
-        savedItemsData = [{ item: "", serial: "" }];
-        activeRowIndex = 0;
-
-        // Reset Train ID & PIC
+        document.getElementById("workContentForm").reset();
+        savedItemsData = [];
         selectedTrains = [];
         selectedPics = [];
         renderSelectedTrains();
-        initTrainSelector();
-        loadFormData();
         renderRightTable();
-
-        loadStats(); 
+        loadFormData();
+        loadStats();
     } catch (err) {
         console.error("Error saving data:", err);
     }
 }
 
-// Jalankan fungsi ketika halaman selesai dimuatkan
 document.addEventListener("DOMContentLoaded", ()=>{
     loadStats();
     loadFormData();

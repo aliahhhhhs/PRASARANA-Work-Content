@@ -33,7 +33,7 @@ db.run(`
     )
     `);
 
-// Work Content
+// Work Content (Updated with Finding Problem & Troubleshoot Method)
 db.run(`
     CREATE TABLE IF NOT EXISTS work_content(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,24 +43,25 @@ db.run(`
     date TEXT,
     item TEXT,
     serial TEXT,
-    pic TEXT
+    pic TEXT,
+    finding_problem TEXT,
+    troubleshoot_method TEXT
     )
     `);
 
 // Admin Users
 const senaraiUser = [
-    { name: "Elyas", pass: "123456789", team: "Team 1"  },
-    { name: "Hairez", pass: "123456789", team: "Team 1" },
-    { name: "Isa",  pass: "123456789", team: "Team 1" },
-    { name: "Zaid",  pass: "123456789", team: "Team 1"  },
-    { name: "Farhan",  pass: "123456789", team: "Team 1"  },
-    { name: "SayaAdmin1",  pass: "SayaAdmin", team: "Team 1" },
-    { name: "Syafiq", pass: "123456789", team: "Team 2" },
-    { name: "Hafiz", pass: "123456789", team: "Team 2" },
-    { name: "Khai",  pass: "123456789", team: "Team 2" },
-    { name: "Izudin",  pass: "123456789", team: "Team 2" },
-    { name: "Nik",  pass: "123456789", team: "Team 2"  },
-    { name: "SayaAdmin2",  pass: "SayaAdmin", team: "Team 2"  },
+    { name: "10012491", pass: "123456789", team: "Team 1" },
+    { name: "10019777", pass: "123456789", team: "Team 1" },
+    { name: "10020169", pass: "123456789", team: "Team 1" },
+    { name: "10020137", pass: "123456789", team: "Team 1" },
+    { name: "10021302", pass: "123456789", team: "Team 1" },
+    { name: "10013167", pass: "123456789", team: "Team 2" },
+    { name: "10022645", pass: "123456789", team: "Team 2" },
+    { name: "10022193", pass: "123456789", team: "Team 2" },
+    { name: "10022235", pass: "123456789", team: "Team 2" },
+    { name: "10022009", pass: "123456789", team: "Team 2" },
+    { name: "Admin", pass: "iamAdmin", team: "All" },
 ];
 
 const stmtUser = db.prepare("INSERT INTO users (username, password, team_name) VALUES (?, ?, ?)");
@@ -126,10 +127,9 @@ db.run("DELETE FROM person_in_charge", (err) => {
 
         stmtPic.finalize(() => {
             console.log("Semua senarai PIC rasmi berjaya dikemaskini!");
-            // db.close diletakkan di dalam ini supaya ia tidak jalan terlalu cepat
             db.close();
             console.log("Database ditutup dengan selamat.");
         });
     });
 
-}); 
+});

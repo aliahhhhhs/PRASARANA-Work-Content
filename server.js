@@ -72,7 +72,6 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.get("/api/dashboard/stats", checkLogin, (req, res) => {
-    // Membetulkan query tarikh cara PostgreSQL
     const query = `
         SELECT 
             SUM(CASE WHEN TO_CHAR(date::DATE, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN 1 ELSE 0 END) as totalmonth,
@@ -102,18 +101,26 @@ app.use("/auth", authRoute);
 app.use("/api/items", itemsRoute);
 app.use("/api/pic", picRoute);
 
-// SAVE NEW WORK (Dah tukar ? ke $1-$7)
+// SAVE NEW WORK
 app.post("/api/workcontent", checkLogin, (req, res) => {
-    const { team, task, date, item, serial, pic, trains } = req.body;
-    const query = "INSERT INTO work_content (team, task, date, item, serial, pic, trains) VALUES ($1, $2, $3, $4, $5, $6, $7)";
+    const { team, task, date, savedItems, pic, trains, findingProblem, troubleshootMethod } = req.body;
     
-    pool.query(query, [team, task, date, item, serial, pic, trains], (err, result) => {
+    // Serializing savedItems array to JSON string for Postgres storage
+    const itemStr = JSON.stringify(savedItems || []);
+    const serialStr = JSON.stringify(savedItems || []);
+
+    const query = `
+        INSERT INTO work_content (team, task, date, item, serial, pic, trains, finding_problem, troubleshoot_method) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+    
+    pool.query(query, [team, task, date, itemStr, serialStr, pic, trains, findingProblem, troubleshootMethod], (err, result) => {
         if (err) return res.status(500).json({ success: false, message: err.message });
-        res.json({ success: true, message: "Data Successfully saved!" });
+        res.json({ success: true, message: "Data successfully saved!" });
     });
 });
 
-// SAVE ALL RECORDS
+// GET ALL WORK CONTENT RECORDS
 app.get("/api/workcontent", checkLogin, (req, res) => {
     pool.query("SELECT * FROM work_content ORDER BY id ASC", (err, result) => {
         if (err) { 
@@ -123,11 +130,14 @@ app.get("/api/workcontent", checkLogin, (req, res) => {
     });
 });
 
-// EDIT RECORDS (Dah tukar ? ke $1-$7)
+// EDIT RECORDS
 app.put("/api/workcontent/:id", checkLogin, (req, res) => {
     const id = req.params.id;
-    const { trains, task, date, item, serial, pic } = req.body;
+    const { trains, task, date, savedItems, pic, findingProblem, troubleshootMethod } = req.body;
     
+    const itemStr = JSON.stringify(savedItems || []);
+    const serialStr = JSON.stringify(savedItems || []);
+
     const query = `
         UPDATE work_content 
         SET     
@@ -136,11 +146,13 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
             item = $3,
             serial = $4,
             pic = $5,
-            trains = $6        
-        WHERE id = $7
+            trains = $6,
+            finding_problem = $7,
+            troubleshoot_method = $8
+        WHERE id = $9
     `;
     
-    pool.query(query, [task, date, item, serial, pic, trains, id], (err, result) => {
+    pool.query(query, [task, date, itemStr, serialStr, pic, trains, findingProblem, troubleshootMethod, id], (err, result) => {
         if (err) {
             return res.status(500).json({ success: false, message: err.message });
         }
@@ -148,7 +160,7 @@ app.put("/api/workcontent/:id", checkLogin, (req, res) => {
     });
 });
 
-// DELETE RECORDS (Dah tukar ? ke $1)
+// DELETE RECORDS
 app.delete("/api/workcontent/:id", checkLogin, (req, res) => {
     const id = req.params.id;
     pool.query("DELETE FROM work_content WHERE id = $1", [id], (err, result) => {
@@ -176,15 +188,15 @@ app.post("/api/edit-requests", checkLogin, (req, res) => {
 // Take Requests (Admin Only)
 app.get("/api/edit-requests", checkLogin, (req, res) => {
     const currentUser = req.session.user;
-    const isAdmin = currentUser && (currentUser.username === "SayaAdmin1" || currentUser.username === "SayaAdmin2");
+    const isAdmin = currentUser && (currentUser.username === "Admin" || currentUser.team_name === "All");
 
     if (!isAdmin) {
-        return res.status(403).json ({ success: false, message: "Access Denied."});
+        return res.status(403).json({ success: false, message: "Access Denied." });
     }
 
     pool.query("SELECT * FROM edit_requests WHERE status = 'PENDING' ORDER BY id DESC", (err, result) => {
-        if (err) return res.status(500).json ({ error: err.message });
-        res.json(result.rows);    
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(result.rows);
     });
 });
 
