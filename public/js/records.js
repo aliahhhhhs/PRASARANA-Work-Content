@@ -1,18 +1,14 @@
-// ==========================================
-// PEMBOLEHUBAH GLOBAL
-// ==========================================
 let selectedTrains = [];
 let editSelectedTrains = [];
 let editSelectedPics = [];
-let editItemsList = []; // Array pasangan { item, serial } untuk Modal Edit
+let editItemsList = []; // Stores { itemIn, serialIn, itemOut, serialOut }
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
 let isAdminUser = false;
+let currentRecords = [];
 
-// ==========================================
-// SISTEM NOTIFIKASI ADMIN & EDIT REQUEST
-// ==========================================
+// ADMIN & NOTIFICATIONS
 function toggleNotiDropdown(e) {
     if(e) e.preventDefault();
     const menu = document.getElementById("notiDropdownMenu");
@@ -24,7 +20,6 @@ async function loadNotifications() {
     try {
         const res = await fetch("/api/edit-requests");
         const requests = await res.json();
-        
         const countEl = document.getElementById("notiCount");
         const container = document.getElementById("notiItemsContainer");
         
@@ -76,9 +71,7 @@ async function submitEditRequest() {
     document.getElementById("chatMessage").value = "";
 }
 
-// ==========================================
-// LOGIK GRID TRAIN ID (UTAMA & EDIT)
-// ==========================================
+// TRAIN SELECTORS
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
     if (!trainGrid) return;
@@ -197,72 +190,18 @@ function renderEditSelectedTrains() {
     });
 }
 
-document.addEventListener("click", function(event) {
-    const container = document.querySelector(".train-selector-container");
-    if (container && !container.contains(event.target)) {
-        const dd = document.getElementById("trainDropdown");
-        if (dd) dd.style.display = "none";
-    }
-    const editContainer = document.querySelector(".edit-train-container");
-    if (editContainer && !editContainer.contains(event.target)) {
-        const edd = document.getElementById("editTrainDropdown");
-        if (edd) edd.style.display = "none";
-    }
-});
-
-// ==========================================
-// PENAPISAN OPTIONS
-// ==========================================
-async function updatePicFilterOptions() {
-    const selectedTeam = document.getElementById("filterTeam").value;
-    const url = selectedTeam ? `/api/pic?team=${encodeURIComponent(selectedTeam.trim())}` : "/api/pic";
-    try {
-        const picRes = await fetch(url);
-        const pic = await picRes.json();
-        const picSelect = document.getElementById("filterPIC");
-        if (picSelect){
-            picSelect.innerHTML = '<option value="">All PIC</option>';
-            if (Array.isArray(pic)) {
-                pic.forEach(p => {
-                    let option = document.createElement("option");
-                    option.value = p.name; option.innerText = p.name;
-                    picSelect.appendChild(option);
-                });
-            }
-        }
-    } catch (err) { console.error(err); }
-}
-
-async function loadFilterOptions(){
-    await updatePicFilterOptions();
-    try {
-        const itemRes = await fetch("/api/items");
-        const items = await itemRes.json();
-        const itemSelect = document.getElementById("filterItem");
-        if (itemSelect) {
-            itemSelect.innerHTML ='<option value="">All Items</option>';
-            items.forEach(i =>{
-                let option = document.createElement("option");
-                option.value = i.item_name; option.innerText = i.item_name;
-                itemSelect.appendChild(option);
-            });
-        }
-    } catch (err) { console.error(err); }
-}
-
-// ==========================================
-// PAPARAN DATA REKOD
-// ==========================================
+// RENDER RECORDS TABLE
 async function loadRecords() {
     try {
         const res = await fetch("/api/workcontent");
         let data = await res.json();
+        currentRecords = data;
 
         try {
             const userRes = await fetch("/api/auth/me");
             if (userRes.ok) {
                 const currentUser = await userRes.json();
-                isAdminUser = currentUser && (currentUser.username === "SayaAdmin1" || currentUser.username === "SayaAdmin2");
+                isAdminUser = currentUser && (currentUser.username === "Admin" || currentUser.team_name === "All");
                 if (isAdminUser) {
                     document.getElementById("adminNotiBtn").style.display = "inline-block";
                     loadNotifications();
@@ -272,22 +211,9 @@ async function loadRecords() {
 
         const team = document.getElementById("filterTeam").value;
         const pic = document.getElementById("filterPIC").value;
-        const item = document.getElementById("filterItem").value;
 
         if (team) data = data.filter(r => r.team === team);
         if (pic) data = data.filter(r => r.pic === pic);
-        if (item) data = data.filter(r => r.item && r.item.includes(item));
-        if (selectedStartDate && selectedEndDate) {
-            data = data.filter(r => r.date >= selectedStartDate && r.date <= selectedEndDate);
-        }
-
-        if (selectedTrains.length > 0) {
-            data = data.filter(r => {
-                if (!r.trains) return false;
-                const rowTrains = r.trains.split(",").map(t => parseInt(t.trim()));
-                return selectedTrains.every(t => rowTrains.includes(t));
-            });
-        }
 
         const totalCountElement = document.getElementById("totalRecordsCount");
         if (totalCountElement) totalCountElement.innerHTML = data.length;
@@ -297,7 +223,7 @@ async function loadRecords() {
         table.innerHTML = "";
 
         if (data.length === 0) {
-            table.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 15px;">Tiada rekod dijumpai.</td></tr>`;
+            table.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 15px;">Tiada rekod dijumpai.</td></tr>`;
             return;
         }
 
@@ -309,37 +235,58 @@ async function loadRecords() {
             let actionButtons = `<em>No Access</em>`;
             if (isAdminUser) {
                 actionButtons = `
-                <button class="edit" onclick="editRecord(${row.id}, '${row.task || ''}', '${row.date || ''}', '${row.item || ''}', '${row.serial || ''}', '${row.trains || ''}', '${row.pic || ''}')">Edit</button>
+                <button class="edit" onclick="editRecord(${row.id})">Edit</button>
                 <button class="delete" onclick="deleteRecord(${row.id})">Delete</button>`;
             }
 
             let trainsHTML = "-";
             if (row.trains && row.trains.trim() !== "") {
                 trainsHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;">`;
-                row.trains.split(",").forEach(trainNum => {
-                    if (trainNum.trim()) {
-                        trainsHTML += `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px;">${trainNum.trim()}</span>`;
+                row.trains.split(",").forEach(tStr => {
+                    if (tStr.trim()) {
+                        trainsHTML += `<span style="display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 12px; background: #c8102e; color: white; font-weight: bold; font-size: 11px;">${tStr.trim()}</span>`;
                     }
                 });
                 trainsHTML += `</div>`;
             }
 
-            const itemList = (row.item || "").split(",").map(s => s.trim());
-            const serialList = (row.serial || "").split(",").map(s => s.trim());
-            const maxPairs = Math.max(itemList.length, serialList.length);
-
-            let itemsAndSerialsHTML = `<div class="items-sketch-grid">`;
-            for (let i = 0; i < maxPairs; i++) {
-                const currentItem = itemList[i] || "-";
-                const currentSerial = serialList[i] || "-";
-                itemsAndSerialsHTML += `
-                    <div class="item-sketch-card">
-                        <div><b>Item:</b> ${currentItem}</div>
-                        <div><b>Serial Number:</b> ${currentSerial}</div>
-                    </div>
-                `;
+            // Safe Parse Items IN / OUT JSON array
+            let parsedItems = [];
+            try {
+                parsedItems = typeof row.item === 'string' ? JSON.parse(row.item) : row.item;
+            } catch(e) {
+                parsedItems = [];
             }
-            itemsAndSerialsHTML += `</div>`;
+
+            let itemsInHTML = `<div class="sketch-item-card-grid">`;
+            let itemsOutHTML = `<div class="sketch-item-card-grid">`;
+
+            if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                parsedItems.forEach(pair => {
+                    if (pair.itemIn || pair.serialIn) {
+                        itemsInHTML += `
+                            <div class="sketch-box-card">
+                                <div><b>Item In:</b> ${pair.itemIn || '-'}</div>
+                                <div><b>S/N In:</b> ${pair.serialIn || '-'}</div>
+                            </div>
+                        `;
+                    }
+                    if (pair.itemOut || pair.serialOut) {
+                        itemsOutHTML += `
+                            <div class="sketch-box-card">
+                                <div><b>Item Out:</b> ${pair.itemOut || '-'}</div>
+                                <div><b>S/N Out:</b> ${pair.serialOut || '-'}</div>
+                            </div>
+                        `;
+                    }
+                });
+            } else {
+                itemsInHTML += `<div class="sketch-box-card">-</div>`;
+                itemsOutHTML += `<div class="sketch-box-card">-</div>`;
+            }
+
+            itemsInHTML += `</div>`;
+            itemsOutHTML += `</div>`;
 
             let formattedDate = row.date || '-';
             if (row.date && row.date.includes("-")) {
@@ -347,13 +294,26 @@ async function loadRecords() {
                 if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
             }
 
+            const reportIcon = `
+                <div onclick="openReportModal(${row.id})" style="cursor: pointer; display: inline-block;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                </div>
+            `;
+
             tr.innerHTML = `
             <td>${visualId}</td>
             <td>${row.team || '-'}</td>
             <td>${row.task || '-'}</td>
             <td>${formattedDate}</td>
-            <td>${itemsAndSerialsHTML}</td>
+            <td>${itemsInHTML}</td>
+            <td>${itemsOutHTML}</td>
             <td>${trainsHTML}</td>
+            <td>${reportIcon}</td>
             <td>${row.pic || '-'}</td>
             <td>${actionButtons}</td>
             `;
@@ -363,78 +323,67 @@ async function loadRecords() {
     } catch (err) { console.error("Error loading records:", err); }
 }
 
-// ==========================================
-// INTERAKSI POPUP EDIT REKOD & SUB-MODAL ITEM
-// ==========================================
-async function editRecord(id, task, date, item, serial, trains, pic) {
+// REPORT MODAL POPUP
+function openReportModal(recordId) {
+    const rec = currentRecords.find(r => r.id === recordId);
+    if (!rec) return;
+
+    document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
+    document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
+    document.getElementById("reportModal").style.display = "flex";
+}
+
+function closeReportModal() {
+    document.getElementById("reportModal").style.display = "none";
+}
+
+// EDIT RECORD POPUP WIREFRAME HANDLERS
+async function editRecord(id) {
+    const rec = currentRecords.find(r => r.id === id);
+    if (!rec) return;
+
     document.getElementById("editRecordId").value = id;
-    document.getElementById("editTask").value = task || "";
-    document.getElementById("editDate").value = date || "";
+    document.getElementById("editTask").value = rec.task || "";
+    document.getElementById("editDate").value = rec.date || "";
 
-    // Parse pasangan Item & Serial ke dalam Array
-    const rawItems = (item || "").split(",").map(s => s.trim());
-    const rawSerials = (serial || "").split(",").map(s => s.trim());
-    const totalCount = Math.max(rawItems.length, rawSerials.length);
-
-    editItemsList = [];
-    for (let i = 0; i < totalCount; i++) {
-        editItemsList.push({
-            item: rawItems[i] || "",
-            serial: rawSerials[i] || ""
-        });
+    try {
+        editItemsList = typeof rec.item === 'string' ? JSON.parse(rec.item) : (rec.item || []);
+    } catch(e) {
+        editItemsList = [];
     }
 
     renderEditItemsList();
 
-    if (pic && pic.trim() !== "" && pic !== "-") {
-        editSelectedPics = pic.split(",").map(p => p.trim());
-    } else {
-        editSelectedPics = [];
-    }
-
-    try {
-        const res = await fetch("/api/workcontent");
-        const allRecords = await res.json();
-        const currentRec = allRecords.find(r => r.id === id);
-        const currentTeam = currentRec ? currentRec.team : "";
-        document.getElementById("editRecordTeam").value = currentTeam;
-
-        const picRes = await fetch(currentTeam ? `/api/pic?team=${encodeURIComponent(currentTeam.trim())}` : "/api/pic");
-        const picList = await picRes.json();
-        
-        const editPicContainer = document.getElementById("editPicContainer");
-        if (editPicContainer) {
-            editPicContainer.innerHTML = "";
-            if (Array.isArray(picList)) {
-                picList.forEach(p => {
-                    const btn = document.createElement("button");
-                    btn.type = "button";
-                    btn.innerText = p.name;
-                    btn.className = `btn-pic-rounded ${editSelectedPics.includes(p.name) ? 'active' : ''}`;
-
-                    btn.onclick = (e) => {
-                        e.preventDefault();
-                        toggleEditPicSelection(p.name, btn);
-                    };
-                    editPicContainer.appendChild(btn);
-                });
-            }
+    editSelectedPics = rec.pic ? rec.pic.split(",").map(p => p.trim()) : [];
+    
+    // Render PIC buttons
+    const picRes = await fetch(rec.team ? `/api/pic?team=${encodeURIComponent(rec.team.trim())}` : "/api/pic");
+    const picList = await picRes.json();
+    const editPicContainer = document.getElementById("editPicContainer");
+    if (editPicContainer) {
+        editPicContainer.innerHTML = "";
+        if (Array.isArray(picList)) {
+            picList.forEach(p => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.innerText = p.name;
+                btn.className = `btn-pic-rounded ${editSelectedPics.includes(p.name) ? 'active' : ''}`;
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    toggleEditPicSelection(p.name, btn);
+                };
+                editPicContainer.appendChild(btn);
+            });
         }
-    } catch (err) { console.error("Gagal memuatkan PIC untuk edit", err); }
-
-    if (trains && trains.trim() !== "" && trains !== "-") {
-        editSelectedTrains = trains.split(",").map(t => parseInt(t.trim())).filter(t => !isNaN(t));
-    } else {
-        editSelectedTrains = [];
     }
 
+    editSelectedTrains = rec.trains ? rec.trains.split(",").map(t => t.trim()) : [];
     initEditTrainSelector();
     renderEditSelectedTrains();
 
     document.getElementById("editModal").style.display = "flex";
 }
 
-// Papar senarai butang Item & Serial di Modal Edit utama
 function renderEditItemsList() {
     const container = document.getElementById("editItemsContainer");
     if (!container) return;
@@ -446,24 +395,26 @@ function renderEditItemsList() {
         itemBtn.onclick = () => openSubItemModal(index);
 
         itemBtn.innerHTML = `
-            <span><b>Item:</b> ${obj.item || 'Item Name'}</span>
-            <span style="color: #64748b;">|</span>
-            <span><b>Serial Number:</b> ${obj.serial || '1234567890'}</span>
+            <div><b>Item In:</b> ${obj.itemIn || '-'} | <b>S/N In:</b> ${obj.serialIn || '-'}</div>
+            <div><b>Item Out:</b> ${obj.itemOut || '-'} | <b>S/N Out:</b> ${obj.serialOut || '-'}</div>
         `;
         container.appendChild(itemBtn);
     });
 }
 
-// Buka Sub-modal Popup untuk edit Item/Serial individu
 function openSubItemModal(index) {
     const obj = editItemsList[index];
     document.getElementById("subItemIndex").value = index;
     
-    document.getElementById("subCurrentItem").value = obj.item || "";
-    document.getElementById("subNewItem").value = "";
-    
-    document.getElementById("subCurrentSerial").value = obj.serial || "";
-    document.getElementById("subNewSerial").value = "";
+    document.getElementById("subCurrentItemIn").value = obj.itemIn || "";
+    document.getElementById("subNewItemIn").value = "";
+    document.getElementById("subCurrentSerialIn").value = obj.serialIn || "";
+    document.getElementById("subNewSerialIn").value = "";
+
+    document.getElementById("subCurrentItemOut").value = obj.itemOut || "";
+    document.getElementById("subNewItemOut").value = "";
+    document.getElementById("subCurrentSerialOut").value = obj.serialOut || "";
+    document.getElementById("subNewSerialOut").value = "";
 
     document.getElementById("subItemModal").style.display = "flex";
 }
@@ -474,15 +425,16 @@ function closeSubItemModal() {
 
 function saveSubItemChanges() {
     const index = parseInt(document.getElementById("subItemIndex").value);
-    const newItem = document.getElementById("subNewItem").value.trim();
-    const newSerial = document.getElementById("subNewSerial").value.trim();
+    
+    const newIn = document.getElementById("subNewItemIn").value.trim();
+    const newSerIn = document.getElementById("subNewSerialIn").value.trim();
+    const newOut = document.getElementById("subNewItemOut").value.trim();
+    const newSerOut = document.getElementById("subNewSerialOut").value.trim();
 
-    if (newItem !== "") {
-        editItemsList[index].item = newItem;
-    }
-    if (newSerial !== "") {
-        editItemsList[index].serial = newSerial;
-    }
+    if (newIn) editItemsList[index].itemIn = newIn;
+    if (newSerIn) editItemsList[index].serialIn = newSerIn;
+    if (newOut) editItemsList[index].itemOut = newOut;
+    if (newSerOut) editItemsList[index].serialOut = newSerOut;
 
     renderEditItemsList();
     closeSubItemModal();
@@ -504,14 +456,10 @@ function closeEditModal() { document.getElementById("editModal").style.display =
 async function saveEditedRecord() {
     const id = document.getElementById("editRecordId").value;
 
-    const itemsFormatted = editItemsList.map(d => d.item).filter(Boolean).join(", ");
-    const serialsFormatted = editItemsList.map(d => d.serial).filter(Boolean).join(", ");
-
     const data = {
         task: document.getElementById("editTask").value,
         date: document.getElementById("editDate").value,
-        item: itemsFormatted,
-        serial: serialsFormatted,
+        savedItems: editItemsList,
         trains: editSelectedTrains.join(","),
         pic: editSelectedPics.join(", ")
     };
@@ -533,7 +481,6 @@ async function saveEditedRecord() {
         }
     } catch (err) {
         console.error("Error updating record:", err);
-        alert("An error occurred while saving.");
     }
 }
 
@@ -544,98 +491,7 @@ async function deleteRecord(id) {
     }
 }
 
-// ==========================================
-// EKSPORT KE EXCEL & CARIAN
-// ==========================================
-function exportToExcel() {
-    const tableBody = document.getElementById("tableBody");
-    const rows = tableBody.querySelectorAll("tr");
-    if (rows.length === 0 || (rows.length === 1 && rows[0].innerText.includes("Tiada rekod"))) {
-        alert("Tiada data untuk dieksport!"); return;
-    }
-    const excelData = [["ID", "Team", "Task", "Date", "Items & Serial Numbers", "Train ID(s)", "PIC"]];
-    rows.forEach(row => {
-        if (row.style.display !== "none") {
-            const cells = row.querySelectorAll("td");
-            
-            const cards = cells[4].querySelectorAll(".item-sketch-card");
-            let itemsSerialsText = "";
-            if (cards.length > 0) {
-                const textArr = [];
-                cards.forEach(c => textArr.push(c.innerText.replace(/\n/g, " ")));
-                itemsSerialsText = textArr.join(" | ");
-            } else {
-                itemsSerialsText = cells[4].innerText.trim();
-            }
-
-            let trainText = "";
-            const trainSpans = cells[5].querySelectorAll("span");
-            if (trainSpans.length > 0) {
-                const nums = [];
-                trainSpans.forEach(span => nums.push(span.innerText.trim()));
-                trainText = nums.join(",");
-            } else {
-                trainText = cells[5].innerText.trim();
-                if (trainText === "-") trainText = "";
-            }
-
-            excelData.push([
-                cells[0].innerText, cells[1].innerText, cells[2].innerText, cells[3].innerText,
-                itemsSerialsText, trainText, cells[6].innerText
-            ]);
-        }
-    });
-    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Records Data");
-    XLSX.writeFile(workbook, "Work_Content_Records.xlsx");
-}
-
-document.getElementById("search").addEventListener("input", function (){
-    let value = this.value.toLowerCase();
-    let rows = document.querySelectorAll("#tableBody tr");
-    rows.forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
-    });
-});
-
-// ==========================================
-// EVENT LISTENERS DOM LOADED
-// ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
     initTrainSelector();
-    await loadFilterOptions();
     await loadRecords();
-
-    fpInstance = flatpickr("#filterDateRange", {
-        mode: "range", dateFormat: "Y-m-d",
-        onClose: function(selectedDates, dateStr, instance) {
-            if (selectedDates.length === 2) {
-                selectedStartDate = instance.formatDate(selectedDates[0], "Y-m-d");
-                selectedEndDate = instance.formatDate(selectedDates[1], "Y-m-d");
-            } else { selectedStartDate = null; selectedEndDate = null; }
-            loadRecords();
-        }
-    });
-
-    document.getElementById("clearDataBtn").addEventListener("click", function() {
-        if (fpInstance) fpInstance.clear();
-        selectedStartDate = null; selectedEndDate = null;
-        selectedTrains = [];
-        renderSelectedTrains();
-        initTrainSelector();
-        document.getElementById("filterTeam").value = "";
-        document.getElementById("filterItem").value = "";
-        document.getElementById("filterPIC").value = "";
-        document.getElementById("search").value = "";
-        updatePicFilterOptions();
-        loadRecords();
-    });
-
-    document.getElementById("filterTeam").onchange = async function () {
-        await updatePicFilterOptions();
-        loadRecords();
-    };
-    document.getElementById("filterPIC").onchange = loadRecords;
-    document.getElementById("filterItem").onchange = loadRecords;
 });

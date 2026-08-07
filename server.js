@@ -209,7 +209,31 @@ app.post("/api/edit-requests/dismiss/:id", checkLogin, (req, res) => {
     });
 });
 
+// Auto Schema Check In
+pool.query("SELECT version()", (err, res) => {
+    if (err) {
+        console.error("Gagal sambung ke Neon DB:", err);
+    } else {
+        console.log("Berjaya sambung ke Neon Cloud Database!");
+        
+        // Auto-migration check for report columns
+        const autoMigrateQuery = `
+            ALTER TABLE work_content ADD COLUMN IF NOT EXISTS finding_problem TEXT;
+            ALTER TABLE work_content ADD COLUMN IF NOT EXISTS troubleshoot_method TEXT;
+        `;
+        
+        pool.query(autoMigrateQuery, (migrationErr) => {
+            if (migrationErr) {
+                console.error("Migration error:", migrationErr.message);
+            } else {
+                console.log("Database schema successfully verified!");
+            }
+        });
+    }
+});
+
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+

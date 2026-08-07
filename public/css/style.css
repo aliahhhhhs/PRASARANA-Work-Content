@@ -1,5 +1,122 @@
 body{
     margin:0;
+    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    background: #f4f4f4;
+    margin: 20px;
+}
+
+.container{
+    display: flex;
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 90vh;
+    font-family: verdana;    
+}
+
+.logo{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-top: 20px;
+    }
+
+.main-logo{
+        width: 250px;
+        height: 250px;
+        object-fit: contain;
+    }
+
+.stat-box, .form-group{
+    flex: 1 1 300px;
+    width: 100%;
+}
+
+.teams{
+    display: flex;
+    gap: 40px;
+}
+
+.team-card{
+    width: 250px;
+    height: 250px;
+    background: #c8102e;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .3s;
+}
+
+.team-card:hover{
+    background: #005bac;
+    transform: scale(1.05s);
+}
+
+.hrteam{
+    font-family: tahoma;
+    color: #c8102e;
+    text-align: center;
+    font-size: 25px;    
+}
+
+.login-box{
+    width: 350px;
+    margin: 100px auto;
+    margin-top: 10px;
+    padding: 50px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 15px gray;
+}
+
+.login-box input{
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+    font-size: 16px !important;
+}
+
+.login-box button{
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    background: #c8102e;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+}
+
+.login-box a{
+    text-decoration: none;
+    padding: 12px;
+    background: #005bac;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    align-items: center;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-size: 14px;
+    justify-content: center;
+    display: flex;
+}
+
+.cute-popup-border {
+    border-radius: 20px !important;
+    margin-top: auto;
+}
+
+body{
+    margin:0;
     font-family: Arial, Helvetica, sans-serif;
     background: #f4f4f4;
 }
@@ -361,4 +478,352 @@ body{
     border-radius: 20px;
     font-weight: bold;
     cursor: pointer;
+}
+
+/* Records Page */
+
+.records-container{
+    background: white;
+    padding: 18px;
+    border-radius: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,.8s);
+    flex-wrap: wrap;
+}
+
+.records-container input,
+.records-container select{
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.records-container button{
+    background: #005bac;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: sans-serif;
+    font-size: 16px;
+}
+
+.records-container a{
+    font-family: sans-serif;
+    font-size: 16px !important;
+}
+
+table{
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+}
+
+th, td{
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+th{
+    background: #1b1b1b;
+    color: white;
+}
+
+button.delete{
+    background: red;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.edit{
+    background: #005bac;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 6px;
+}
+
+.delete{
+    background: #d71920;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.noti-dropdown {
+        display: none; position: absolute; right: 20px; top: 70px;
+        background: white; border: 1px solid #ccc; width: 320px;
+        max-height: 300px; overflow-y: auto; z-index: 2000;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15); border-radius: 8px; padding: 10px;
+      }
+      
+.noti-item { 
+    padding: 8px; 
+    border-bottom: 1px solid #eee; 
+    font-size: 13px; 
+}
+
+.noti-item button { 
+    background: #c8102e; color: white; 
+    border: none; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    float: right;
+}
+      
+.train-selector-container { 
+    position: relative; 
+    display: inline-block; 
+}
+
+/* Styling Jadual Records Mengikut Sketch */
+table.sketch-records-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: white;
+    border: 2px solid #000;
+}
+
+table.sketch-records-table th, 
+table.sketch-records-table td {
+    border: 2px solid #000;
+    padding: 12px 10px;
+    text-align: center;
+    vertical-align: middle;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+}
+
+table.sketch-records-table th {
+    background: #111111;
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Grid Kad 3 Kolum (Horizontally) untuk Items & Serial Numbers */
+.items-sketch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); /* Exactly 3 horizontal columns */
+    gap: 8px;
+    padding: 5px;
+    width: 100%;
+}
+
+.item-sketch-card {
+    background: #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 16px;
+    color: #1e293b;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    word-break: break-word; /* Auto wrap long serial numbers/characters */
+    overflow-wrap: break-word;
+}
+
+.item-sketch-card b {
+    color: #0f172a;
+}
+
+/* Card & Pop-Up Edit Record Utama */
+.edit-record-card {
+    background: white;
+    width: 650px;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 2px solid #000;
+    font-family: Arial, sans-serif;
+}
+
+.edit-record-table {
+    display: flex;
+    flex-direction: column;
+    border: 1.5px solid #000;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.edit-row {
+    display: flex;
+    border-bottom: 1.5px solid #000;
+    align-items: center;
+}
+
+.edit-row:last-child {
+    border-bottom: none;
+}
+
+.edit-label {
+    width: 140px;
+    padding: 15px;
+    font-weight: bold;
+    font-size: 14px;
+    border-right: 1.5px solid #000;
+    background: #fff;
+    display: flex;
+    align-items: center;
+}
+
+.edit-field {
+    flex: 1;
+    padding: 12px 15px;
+    background: #fff;
+}
+
+.edit-input-rounded {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid #000;
+    border-radius: 20px;
+    font-size: 14px;
+    box-sizing: border-box;
+    outline: none;
+}
+
+/* Row Item/Serial Dalam Modal Edit Utama */
+.edit-item-button-row {
+    background: #e2e8f0;
+    border: 1.5px solid #000;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.edit-item-button-row:hover {
+    background: #cbd5e1;
+    transform: scale(1.01);
+}
+
+/* Sub-modal Kecil Untuk Edit Item/Serial Individu */
+.sub-item-card {
+    background: #d1d5db;
+    width: 380px;
+    border-radius: 20px;
+    padding: 25px;
+    border: 2px solid #000;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    font-family: Arial, sans-serif;
+}
+
+.sub-label {
+    font-weight: bold;
+    font-size: 14px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* Records Page Grid Layout for IN and OUT Cards */
+.sketch-item-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 4px;
+}
+
+.sketch-box-card {
+    background: #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 13px;
+    color: #1e293b;
+    line-height: 1.3;
+    border: 1px solid #cbd5e1;
+}
+
+.sketch-box-card b {
+    color: #0f172a;
+}
+
+/* Butang PIC & Action */
+.btn-pic-rounded {
+    padding: 6px 14px;
+    border: 1.5px solid #000;
+    background: white;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    transition: 0.2s;
+}
+
+.btn-pic-rounded.active {
+    background: #c8102e;
+    color: white;
+    border-color: #c8102e;
+}
+
+.btn-modal-cancel {
+    background: white;
+    color: #c8102e;
+    border: 2px solid #c8102e;
+    padding: 10px 28px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-modal-done {
+    background: #c8102e;
+    color: white;
+    border: none;
+    padding: 10px 28px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    body{
+        font-size: 14px;
+    }
+
+    .container{
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .main-logo{
+        width: 150px;
+        height: fit-content;
+    }
+
+    .teams{
+        gap: 15px;
+    }
+    .team-card{
+        width: 130px;
+        height: 150px;
+        padding: 10px;
+        font-family: verdana;
+    }
+
+    .sidebar{
+        width: 100%;
+        position: relative;
+        height: auto;
+    }
 }
