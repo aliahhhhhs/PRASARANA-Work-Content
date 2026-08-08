@@ -1,46 +1,48 @@
 let selectedTrains = [];
 let editSelectedTrains = [];
 let editSelectedPics = [];
-let editItemsList = []; // Stores { itemIn, serialIn, itemOut, serialOut }
+let editItemsList = [];
 let selectedStartDate = null;
 let selectedEndDate = null;
 let fpInstance = null;
 let isAdminUser = false;
 let currentRecords = [];
 
-// ADMIN & NOTIFICATIONS
 function toggleNotiDropdown(e) {
     if(e) e.preventDefault();
     const menu = document.getElementById("notiDropdownMenu");
-    menu.style.display = menu.style.display === "none" ? "block" : "none";
+    if (menu) menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
 
 async function loadNotifications() {
-    if (!isAdminUser) return;
     try {
         const res = await fetch("/api/edit-requests");
+        if (!res.ok) return;
         const requests = await res.json();
         const countEl = document.getElementById("notiCount");
         const container = document.getElementById("notiItemsContainer");
         
-        if(requests.length > 0) {
-            countEl.innerText = requests.length;
-            countEl.style.display = "inline-block";
-            container.innerHTML = "";
-            
-            requests.forEach(req => {
-                const item = document.createElement("div");
-                item.className = "noti-item";
-                item.innerHTML = `
-                    <b>ID Rekod: ${req.record_id}</b> (${req.username})<br>
-                    <span>"${req.message}"</span>
-                    <button onclick="dismissNotification(${req.id})">Selesai</button>
-                `;
-                container.appendChild(item);
-            });
+        if(Array.isArray(requests) && requests.length > 0) {
+            if (countEl) {
+                countEl.innerText = requests.length;
+                countEl.style.display = "inline-block";
+            }
+            if (container) {
+                container.innerHTML = "";
+                requests.forEach(req => {
+                    const item = document.createElement("div");
+                    item.className = "noti-item";
+                    item.innerHTML = `
+                        <b>ID Rekod: ${req.record_id}</b> (${req.username})<br>
+                        <span>"${req.message}"</span>
+                        <button onclick="dismissNotification(${req.id})">Selesai</button>
+                    `;
+                    container.appendChild(item);
+                });
+            }
         } else {
-            countEl.style.display = "none";
-            container.innerHTML = "Tiada notifikasi baharu.";
+            if (countEl) countEl.style.display = "none";
+            if (container) container.innerHTML = "Tiada notifikasi baharu.";
         }
     } catch(err) { console.error(err); }
 }
@@ -71,7 +73,6 @@ async function submitEditRequest() {
     document.getElementById("chatMessage").value = "";
 }
 
-// TRAIN SELECTORS
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
     if (!trainGrid) return;
@@ -130,6 +131,7 @@ function renderSelectedTrains() {
     });
 }
 
+// LOGIK TRAIN ID UNTUK MODAL EDIT
 function initEditTrainSelector() {
     const trainGrid = document.getElementById("editTrainGrid");
     if (!trainGrid) return;
@@ -141,7 +143,7 @@ function initEditTrainSelector() {
         btn.innerText = i;
         btn.style.cssText = "width: 100%; padding: 4px 0; border: 1px solid #ccc; background: #f8fafc; border-radius: 4px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold;";
         
-        if (editSelectedTrains.includes(i)) {
+        if (editSelectedTrains.includes(String(i)) || editSelectedTrains.includes(i)) {
             btn.style.background = "#c8102e";
             btn.style.color = "white";
             btn.style.borderColor = "#c8102e";
@@ -162,14 +164,15 @@ function toggleEditTrainDropdown(e) {
 }
 
 function toggleEditTrainSelection(num, btn) {
-    const index = editSelectedTrains.indexOf(num);
+    const val = String(num);
+    const index = editSelectedTrains.indexOf(val);
     if (index > -1) {
         editSelectedTrains.splice(index, 1);
         btn.style.background = "#f8fafc";
         btn.style.color = "#000";
         btn.style.borderColor = "#ccc";
     } else {
-        editSelectedTrains.push(num);
+        editSelectedTrains.push(val);
         btn.style.background = "#c8102e";
         btn.style.color = "white";
         btn.style.borderColor = "#c8102e";
@@ -182,15 +185,15 @@ function renderEditSelectedTrains() {
     if (!container) return;
     container.innerHTML = "";
     
-    editSelectedTrains.sort((a,b) => a - b).forEach(num => {
+    editSelectedTrains.forEach(num => {
         const circle = document.createElement("span");
         circle.innerText = num;
-        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #c8102e; color: white; font-weight: bold; font-size: 10px; margin-right: 4px;";
+        circle.style.cssText = "display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 12px; background: #c8102e; color: white; font-weight: bold; font-size: 10px; margin-right: 4px;";
         container.appendChild(circle);
     });
 }
 
-// RENDER RECORDS TABLE
+// RENDER REKOD JADUAL
 async function loadRecords() {
     try {
         const res = await fetch("/api/workcontent");
@@ -203,11 +206,12 @@ async function loadRecords() {
                 const currentUser = await userRes.json();
                 isAdminUser = currentUser && (currentUser.username === "Admin" || currentUser.team_name === "All");
                 if (isAdminUser) {
-                    document.getElementById("adminNotiBtn").style.display = "inline-block";
+                    const btnNoti = document.getElementById("adminNotiBtn");
+                    if (btnNoti) btnNoti.style.display = "inline-block";
                     loadNotifications();
                 }
             }
-        } catch (e) { console.warn("Auth API error"); }
+        } catch (e) { console.warn("Auth API check failed", e); }
 
         const team = document.getElementById("filterTeam").value;
         const pic = document.getElementById("filterPIC").value;
@@ -232,12 +236,10 @@ async function loadRecords() {
         data.forEach(row => {
             const tr = document.createElement("tr");
             
-            let actionButtons = `<em>No Access</em>`;
-            if (isAdminUser) {
-                actionButtons = `
+            const actionButtons = `
                 <button class="edit" onclick="editRecord(${row.id})">Edit</button>
-                <button class="delete" onclick="deleteRecord(${row.id})">Delete</button>`;
-            }
+                <button class="delete" onclick="deleteRecord(${row.id})">Delete</button>
+            `;
 
             let trainsHTML = "-";
             if (row.trains && row.trains.trim() !== "") {
@@ -250,7 +252,6 @@ async function loadRecords() {
                 trainsHTML += `</div>`;
             }
 
-            // Safe Parse Items IN / OUT JSON array
             let parsedItems = [];
             try {
                 parsedItems = typeof row.item === 'string' ? JSON.parse(row.item) : row.item;
@@ -323,58 +324,16 @@ async function loadRecords() {
     } catch (err) { console.error("Error loading records:", err); }
 }
 
-// REPORT MODAL POPUP
-function openReportModal(recordId) {
-    const rec = currentRecords.find(r => r.id === recordId);
-    if (!rec) return;
-
-    document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
-    document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
-    
-    const beforeContainer = document.getElementById("modalReportBefore");
-    const afterContainer = document.getElementById("modalReportAfter");
-
-    if (rec.file_before) {
-        beforeContainer.innerHTML = `<img src="${rec.file_before}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${rec.file_before}', event)" />`;
-    } else {
-        beforeContainer.innerHTML = "No File";
-    }
-
-    if (rec.file_after) {
-        afterContainer.innerHTML = `<img src="${rec.file_after}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${rec.file_after}', event)" />`;
-    } else {
-        afterContainer.innerHTML = "No File";
-    }
-
-    document.getElementById("reportModal").style.display = "flex";
-}
-
-function closeReportModal() {
-    document.getElementById("reportModal").style.display = "none";
-}
-
-// POPUP VIEW GAMBAR BESAR
-function openImagePreview(src, event) {
-    if (event) event.stopPropagation();
-    const modal = document.getElementById("imagePreviewModal");
-    const imgSrc = document.getElementById("previewImageSrc");
-    if (modal && imgSrc) {
-        imgSrc.src = src;
-        modal.style.display = "flex";
-    }
-}
-
-function closeImagePreview() {
-    const modal = document.getElementById("imagePreviewModal");
-    if (modal) {
-        modal.style.display = "none";
-    }
-}
-
-// EDIT RECORD POPUP WIREFRAME HANDLERS
+// EDIT RECORD POPUP HANDLERS
 async function editRecord(id) {
-    const rec = currentRecords.find(r => r.id === id);
-    if (!rec) return;
+    const rec = currentRecords.find(r => String(r.id) === String(id));
+    if (!rec) {
+        alert("Rekod tidak ditemui!");
+        return;
+    }
+
+    const editModal = document.getElementById("editModal");
+    if (!editModal) return;
 
     document.getElementById("editRecordId").value = id;
     document.getElementById("editTask").value = rec.task || "";
@@ -388,34 +347,35 @@ async function editRecord(id) {
 
     renderEditItemsList();
 
-    editSelectedPics = rec.pic ? rec.pic.split(",").map(p => p.trim()) : [];
+    editSelectedPics = rec.pic ? rec.pic.split(",").map(p => p.trim()).filter(Boolean) : [];
     
-    // Render PIC buttons
-    const picRes = await fetch(rec.team ? `/api/pic?team=${encodeURIComponent(rec.team.trim())}` : "/api/pic");
-    const picList = await picRes.json();
-    const editPicContainer = document.getElementById("editPicContainer");
-    if (editPicContainer) {
-        editPicContainer.innerHTML = "";
-        if (Array.isArray(picList)) {
-            picList.forEach(p => {
-                const btn = document.createElement("button");
-                btn.type = "button";
-                btn.innerText = p.name;
-                btn.className = `btn-pic-rounded ${editSelectedPics.includes(p.name) ? 'active' : ''}`;
-                btn.onclick = (e) => {
-                    e.preventDefault();
-                    toggleEditPicSelection(p.name, btn);
-                };
-                editPicContainer.appendChild(btn);
-            });
+    try {
+        const picRes = await fetch(rec.team ? `/api/pic?team=${encodeURIComponent(rec.team.trim())}` : "/api/pic");
+        const picList = await picRes.json();
+        const editPicContainer = document.getElementById("editPicContainer");
+        if (editPicContainer) {
+            editPicContainer.innerHTML = "";
+            if (Array.isArray(picList)) {
+                picList.forEach(p => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.innerText = p.name;
+                    btn.className = `btn-pic-rounded ${editSelectedPics.includes(p.name) ? 'active' : ''}`;
+                    btn.onclick = (e) => {
+                        e.preventDefault();
+                        toggleEditPicSelection(p.name, btn);
+                    };
+                    editPicContainer.appendChild(btn);
+                });
+            }
         }
-    }
+    } catch(err) { console.error(err); }
 
-    editSelectedTrains = rec.trains ? rec.trains.split(",").map(t => t.trim()) : [];
+    editSelectedTrains = rec.trains ? rec.trains.split(",").map(t => t.trim()).filter(Boolean) : [];
     initEditTrainSelector();
     renderEditSelectedTrains();
 
-    document.getElementById("editModal").style.display = "flex";
+    editModal.style.display = "flex";
 }
 
 function renderEditItemsList() {
@@ -518,11 +478,78 @@ async function saveEditedRecord() {
     }
 }
 
+// Delete Records
 async function deleteRecord(id) {
     if(confirm("Confirm To Delete This Record?")) {
-        await fetch("/api/workcontent/" + id, { method: "DELETE" });
-        loadRecords();
+        try {
+            const res = await fetch("/api/workcontent/" + id, { method: "DELETE" });
+            if (res.ok) {
+                alert("Record deleted successfully!");
+                loadRecords();
+            } else {
+                alert("Gagal memadam rekod.");
+            }
+        } catch(e) {
+            console.error("Error deleting record:", e);
+        }
     }
+}
+
+// REPORT MODAL POPUP
+function openReportModal(recordId) {
+    const rec = currentRecords.find(r => String(r.id) === String(recordId));
+    if (!rec) return;
+
+    document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
+    document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
+    
+    renderMediaElement(rec.file_before, "modalReportBefore");
+    renderMediaElement(rec.file_after, "modalReportAfter");
+
+    document.getElementById("reportModal").style.display = "flex";
+}
+
+function renderMediaElement(dataUrl, containerId) {
+    const container = document.getElementById(containerId);
+    if (!dataUrl) {
+        container.innerHTML = "No File";
+        return;
+    }
+
+    if (dataUrl.startsWith("data:image/")) {
+        container.innerHTML = `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${dataUrl}', 'image', event)" />`;
+    } else if (dataUrl.startsWith("data:video/")) {
+        container.innerHTML = `<video src="${dataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="openImagePreview('${dataUrl}', 'video', event)"></video>`;
+    } else if (dataUrl.startsWith("data:audio/")) {
+        container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${dataUrl}', 'audio', event)">🎵<small>Audio</small></div>`;
+    } else {
+        container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${dataUrl}', 'file', event)">📁<small>File</small></div>`;
+    }
+}
+
+function closeReportModal() {
+    document.getElementById("reportModal").style.display = "none";
+}
+
+function openImagePreview(src, type, event) {
+    if (event) event.stopPropagation();
+    const mediaContainer = document.getElementById("previewMediaContainer");
+    
+    if (type === 'image') {
+        mediaContainer.innerHTML = `<img src="${src}" style="max-width: 100%; max-height: 70vh; border-radius: 12px;" />`;
+    } else if (type === 'video') {
+        mediaContainer.innerHTML = `<video src="${src}" controls autoplay style="max-width: 100%; max-height: 70vh; border-radius: 12px;"></video>`;
+    } else if (type === 'audio') {
+        mediaContainer.innerHTML = `<audio src="${src}" controls autoplay style="width: 100%; margin-top: 20px;"></audio>`;
+    } else {
+        mediaContainer.innerHTML = `<a href="${src}" download="attachment">Download File</a>`;
+    }
+
+    document.getElementById("imagePreviewModal").style.display = "flex";
+}
+
+function closeImagePreview() {
+    document.getElementById("imagePreviewModal").style.display = "none";
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

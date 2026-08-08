@@ -1,12 +1,11 @@
 const team = localStorage.getItem("team");
 document.getElementById("teamName").innerText = team || "No Team Selected";
 
-let selectedTrains = []; // Array of objects: { train: 1, coach: "M1" }
+let selectedTrains = [];
 let selectedPics = [];
 let pendingTrainNumber = null;
 let activeMode = null; // "IN" or "OUT"
 
-// Temporary store for current IN/OUT pair before tapping Add More
 let currentDraftData = {
     itemIn: "",
     serialIn: "",
@@ -21,7 +20,6 @@ let savedItemsData = [];
 let activeRowIndex = 0;
 let isEditMode = false;
 
-// Initialize Train ID grid (1 to 58)
 function initTrainSelector() {
     const trainGrid = document.getElementById("trainGrid");
     if (!trainGrid) return;
@@ -114,6 +112,7 @@ function closeItemModal() {
     document.getElementById("itemModal").style.display = "none";
 }
 
+// Menekan OK terus mengemaskini draf DAN automatik push ke table kanan
 function saveItemModalData() {
     const itemVal = document.getElementById("modalItemInput").value.trim();
     const serialVal = document.getElementById("modalSerialInput").value.trim();
@@ -125,17 +124,23 @@ function saveItemModalData() {
         currentDraftData.itemOut = itemVal;
         currentDraftData.serialOut = serialVal;
     }
+
+    // Kemaskini slot aktif di table kanan secara automatik
+    if (!savedItemsData[activeRowIndex]) {
+        savedItemsData[activeRowIndex] = { ...currentDraftData };
+    } else {
+        savedItemsData[activeRowIndex] = { ...savedItemsData[activeRowIndex], ...currentDraftData };
+    }
+
+    renderRightTable();
     closeItemModal();
 }
 
+// Menekan Add More membuka slot baris baharu
 function commitCurrentAndReset() {
-    if (!currentDraftData.itemIn && !currentDraftData.serialIn && !currentDraftData.itemOut && !currentDraftData.serialOut) {
-        alert("Please enter IN or OUT details first.");
-        return;
-    }
-
-    savedItemsData.push({ ...currentDraftData });
     currentDraftData = { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
+    savedItemsData.push({ itemIn: "", serialIn: "", itemOut: "", serialOut: "" });
+    activeRowIndex = savedItemsData.length - 1;
     renderRightTable();
 }
 
@@ -189,7 +194,6 @@ function toggleEditMode() {
     renderRightTable();
 }
 
-// Report Textarea expand/shrink mechanics
 function expandReportTextarea(el) {
     el.classList.add("expanded");
 }
@@ -200,7 +204,7 @@ function shrinkReportTextarea(el) {
     }
 }
 
-// File Upload & Preview
+// File Upload & Preview Support All File Types (Image, Video, Audio)
 function triggerFileInput(id) {
     document.getElementById(id).click();
 }
@@ -210,22 +214,44 @@ function handleFileChange(event, targetPreviewId) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
+            const fileData = e.target.result;
             const container = document.getElementById(targetPreviewId);
-            container.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${e.target.result}', event)" />`;
-            
+            const mimeType = file.type;
+
             if (targetPreviewId === 'previewBefore') {
-                uploadedFileBefore = e.target.result;
+                uploadedFileBefore = fileData;
             } else if (targetPreviewId === 'previewAfter') {
-                uploadedFileAfter = e.target.result;
+                uploadedFileAfter = fileData;
+            }
+
+            if (mimeType.startsWith("image/")) {
+                container.innerHTML = `<img src="${fileData}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${fileData}', 'image', event)" />`;
+            } else if (mimeType.startsWith("video/")) {
+                container.innerHTML = `<video src="${fileData}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${fileData}', 'video', event)"></video>`;
+            } else if (mimeType.startsWith("audio/")) {
+                container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${fileData}', 'audio', event)">🎵<small>Audio</small></div>`;
+            } else {
+                container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${fileData}', 'file', event)">📁<small>File</small></div>`;
             }
         };
         reader.readAsDataURL(file);
     }
 }
 
-function openImagePreview(src, event) {
-    event.stopPropagation();
-    document.getElementById("previewImageSrc").src = src;
+function openImagePreview(src, type, event) {
+    if (event) event.stopPropagation();
+    const mediaContainer = document.getElementById("previewMediaContainer");
+    
+    if (type === 'image') {
+        mediaContainer.innerHTML = `<img src="${src}" style="max-width: 100%; max-height: 70vh; border-radius: 12px;" />`;
+    } else if (type === 'video') {
+        mediaContainer.innerHTML = `<video src="${src}" controls autoplay style="max-width: 100%; max-height: 70vh; border-radius: 12px;"></video>`;
+    } else if (type === 'audio') {
+        mediaContainer.innerHTML = `<audio src="${src}" controls autoplay style="width: 100%; margin-top: 20px;"></audio>`;
+    } else {
+        mediaContainer.innerHTML = `<a href="${src}" download="attachment">Download File</a>`;
+    }
+
     document.getElementById("imagePreviewModal").style.display = "flex";
 }
 
@@ -233,7 +259,6 @@ function closeImagePreview() {
     document.getElementById("imagePreviewModal").style.display = "none";
 }
 
-// Load PICs & Stats
 async function loadFormData() {
     try {
         let currentTeam = localStorage.getItem("team") || "Team 1";
@@ -319,13 +344,14 @@ async function submitWorkAndRefresh(e) {
         if (result.success) {
             alert(result.message || "Data successfully saved!");
             
-            // Reset Form & Temporary States
             document.getElementById("workContentForm").reset();
             savedItemsData = [];
             selectedTrains = [];
             selectedPics = [];
             uploadedFileBefore = "";
             uploadedFileAfter = "";
+            currentDraftData = { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
+            activeRowIndex = 0;
             document.getElementById("previewBefore").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
             document.getElementById("previewAfter").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
             
@@ -338,7 +364,7 @@ async function submitWorkAndRefresh(e) {
         }
     } catch (err) {
         console.error("Error saving data:", err);
-        alert("Gagal menghantar data ke server. Sila semak sambungan rangkaian.");
+        alert("Gagal menghantar data ke server.");
     }
 }
 
