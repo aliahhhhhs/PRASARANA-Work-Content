@@ -119,13 +119,27 @@ app.post("/api/workcontent", checkLogin, (req, res) => {
     });
 });
 
-// GET ALL WORK CONTENT RECORDS
+// GET ALL WORK CONTENT RECORDS (Optimized - w/o Base64 file)
 app.get("/api/workcontent", checkLogin, (req, res) => {
-    pool.query("SELECT * FROM work_content ORDER BY id ASC", (err, result) => {
+    const query = `
+        SELECT id, team, task, date, item, serial, pic, trains, finding_problem, troubleshoot_method, file_before, file_after 
+        FROM work_content 
+        ORDER BY id ASC
+    `;
+    pool.query(query, (err, result) => {
         if (err) { 
             return res.status(500).json({ error: err.message });
         }
         res.json(result.rows);
+    });
+});
+
+// GET SINGLE REPORT DETAILS (Fetch file_before & file_after bila klik icon Report sahaja)
+app.get("/api/workcontent/report/:id", checkLogin, (req, res) => {
+    const id = req.params.id;
+    pool.query("SELECT finding_problem, troubleshoot_method, file_before, file_after FROM work_content WHERE id = $1", [id], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(result.rows[0] || {});
     });
 });
 

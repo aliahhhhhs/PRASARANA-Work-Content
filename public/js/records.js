@@ -495,18 +495,23 @@ async function deleteRecord(id) {
     }
 }
 
-// REPORT MODAL POPUP
-function openReportModal(recordId) {
-    const rec = currentRecords.find(r => String(r.id) === String(recordId));
-    if (!rec) return;
+// REPORT MODAL POPUP (Async Fetch File/Media)
+async function openReportModal(recordId) {
+    try {
+        const res = await fetch(`/api/workcontent/report/${recordId}`);
+        if (!res.ok) return;
+        const rec = await res.json();
 
-    document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
-    document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
-    
-    renderMediaElement(rec.file_before, "modalReportBefore");
-    renderMediaElement(rec.file_after, "modalReportAfter");
+        document.getElementById("modalFindingProblem").innerText = rec.finding_problem || "No problem stated.";
+        document.getElementById("modalTroubleshootMethod").innerText = rec.troubleshoot_method || "No method stated.";
+        
+        renderMediaElement(rec.file_before, "modalReportBefore");
+        renderMediaElement(rec.file_after, "modalReportAfter");
 
-    document.getElementById("reportModal").style.display = "flex";
+        document.getElementById("reportModal").style.display = "flex";
+    } catch (err) {
+        console.error("Error loading report modal:", err);
+    }
 }
 
 function renderMediaElement(dataUrl, containerId) {
@@ -555,4 +560,165 @@ function closeImagePreview() {
 document.addEventListener("DOMContentLoaded", async () => {
     initTrainSelector();
     await loadRecords();
+
+// Event listener apabila Team dropdown bertukar
+    const teamSelect = document.getElementById("filterTeam");
+    if (teamSelect) {
+        teamSelect.addEventListener("change", async (e) => {
+            const selectedTeam = e.target.value;
+            await loadPicDropdown(selectedTeam);
+            loadRecords(); // Reload filter jadual
+        });
+    }
+
+    const picSelect = document.getElementById("filterPIC");
+    if (picSelect) {
+        picSelect.addEventListener("change", loadRecords);
+    }
 });
+
+async function loadPicDropdown(team) {
+    const picSelect = document.getElementById("filterPIC");
+    if (!picSelect) return;
+
+    picSelect.innerHTML = '<option value="">All PIC</option>';
+    if (!team) return;
+
+    try {
+        const res = await fetch(`/api/pic?team=${encodeURIComponent(team)}`);
+        const picList = await res.json();
+        if (Array.isArray(picList)) {
+            picList.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.name;
+                opt.innerText = p.name;
+                picSelect.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        console.error("Error loading PIC dropdown:", err);
+    }
+}
+
+// Export to Excel
+async function exportToExcel() {
+    if (!currentRecords || currentRecords.length === 0) {
+        alert("Tiada rekod untuk diexport!");
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+
+    // SHEET 1: Work Content Records Table
+    const sheet1 = workbook.addWorksheet("Records Table");
+    sheet1.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "TEAM", key: "team", width: 15 },
+        { header: "TASK", key: "task", width: 25 },
+        { header: "DATE", key: "date", width: 15 },
+        { header: "ITEMS AND S/N IN", key: "itemsIn", width: 35 },
+        { header: "ITEMS AND S/N OUT", key: "itemsOut", width: 35 },
+        { header: "TRAIN ID", key: "trains", width: 20 },
+        { header: "PIC", key: "pic", width: 25 }
+    ];
+
+    // SHEET 2: Report Elements
+    const sheet2 = workbook.addWorksheet("Report Elements");
+    sheet2.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "TASK", key: "task", width: 25 },
+        { header: "FINDING PROBLEM", key: "finding_problem", width: 40 },
+        { header: "TROUBLESHOOT METHOD", key: "troubleshoot_method", width: 40 },
+        { header: "ATTACHMENTS", key: "attachments", width: 25 }
+    ];
+
+    currentRecords.forEach(row => {
+        // Parse Items In & Out
+        let parsedItems = [];
+        try {
+            parsedItems = typeof row.item === 'string' ? JSON.parse(row.item) : row.item;
+        } catch(e) { 
+            parsedItems = []; 
+        }
+
+        let itemInStr = "";
+        let itemOutStr = "";
+
+        if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+            itemInStr = parsedItems
+                .filter(p => p.itemIn || p.serialIn)
+                .map(p => `Item: ${p.itemIn || '-'} | S/N: ${p.serialIn || '-'}`)
+                .join("\n");
+
+            itemOutStr = parsedItems
+                .filter(p => p.itemOut || p.serialOut)
+                .map(p => `Item: ${p.itemOut || '-'} | S/N: ${p.serialOut || '-'}`)
+                .join("\n");
+        }
+
+        // Format Date (DD/MM/YYYY)
+        let formattedDate = row.date || '-';
+        if (row.date && row.date.includes("-")) {
+            const parts = row.date.split("-");
+            if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        // Semak status Attachments (Before & After)
+        let attachStatus = [];
+        if (row.file_before) attachStatus.push("Before: Available");
+        else attachStatus.push("Before: No File");
+
+        if (row.file_after) attachStatus.push("After: Available");
+        else attachStatus.push("After: No File");
+
+        // Add Data Ke Sheet 1
+        sheet1.addRow({
+            id: row.id,
+            team: row.team || "-",
+            task: row.task || "-",
+            date: formattedDate,
+            itemsIn: itemInStr || "-",
+            itemsOut: itemOutStr || "-",
+            trains: row.trains || "-",
+            pic: row.pic || "-"
+        });
+
+        // Add Data Ke Sheet 2
+        sheet2.addRow({
+            id: row.id,
+            task: row.task || "-",
+            finding_problem: row.finding_problem || "No problem stated.",
+            troubleshoot_method: row.troubleshoot_method || "No method stated.",
+            attachments: attachStatus.join(" | ")
+        });
+    });
+
+    // Kemaskan Design Header & Alignment
+    [sheet1, sheet2].forEach(sheet => {
+        // Styling Header (Merah Prasarana #C8102E)
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+        sheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'C8102E' }
+        };
+        sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Wrap Text untuk baris-baris data
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                row.alignment = { vertical: 'top', wrapText: true };
+            }
+        });
+    });
+
+    // Export & Download Fail
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Work_Content_Records_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
