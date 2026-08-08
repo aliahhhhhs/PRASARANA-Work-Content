@@ -136,7 +136,8 @@
                   type="file"
                   id="fileBefore"
                   accept="image/*,video/*,audio/*"
-                  onchange="handleFileChange(event, 'previewBefore')"
+                  onchange="handleFileChange(event, 'previewBefore', 'before')"
+                  multiple
                   hidden
                 />
                 <div id="previewBefore" class="file-preview-content">
@@ -153,7 +154,8 @@
                   type="file"
                   id="fileAfter"
                   accept="image/*,video/*,audio/*"
-                  onchange="handleFileChange(event, 'previewAfter')"
+                  onchange="handleFileChange(event, 'previewAfter', 'after')"
+                  multiple
                   hidden
                 />
                 <div id="previewAfter" class="file-preview-content">

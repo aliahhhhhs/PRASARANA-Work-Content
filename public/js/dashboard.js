@@ -13,8 +13,8 @@ let currentDraftData = {
     serialOut: ""
 };
 
-let uploadedFileBefore = "";
-let uploadedFileAfter = "";
+let uploadedFileBefore = [];
+let uploadedFileAfter = [];
 
 let savedItemsData = [];
 let activeRowIndex = 0;
@@ -209,33 +209,48 @@ function triggerFileInput(id) {
     document.getElementById(id).click();
 }
 
-function handleFileChange(event, targetPreviewId) {
-    const file = event.target.files[0];
-    if (file) {
+function handleFileChange(event, targetPreviewId, category) {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+
+    const container = document.getElementById(targetPreviewId);
+    
+    // Clear container if first upload or append previews
+    if ((category === 'before' && uploadedFilesBefore.length === 0) || 
+        (category === 'after' && uploadedFilesAfter.length === 0)) {
+        container.innerHTML = "";
+    }
+
+    files.forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
             const fileData = e.target.result;
-            const container = document.getElementById(targetPreviewId);
             const mimeType = file.type;
 
-            if (targetPreviewId === 'previewBefore') {
-                uploadedFileBefore = fileData;
-            } else if (targetPreviewId === 'previewAfter') {
-                uploadedFileAfter = fileData;
+            // Push file object into respective array
+            if (category === 'before') {
+                uploadedFilesBefore.push({ data: fileData, type: mimeType, name: file.name });
+            } else {
+                uploadedFilesAfter.push({ data: fileData, type: mimeType, name: file.name });
             }
 
+            // Create thumbnail element
+            const thumb = document.createElement("div");
+            thumb.className = "preview-thumbnail";
+            thumb.style.cssText = "display:inline-block; width:45px; height:45px; margin:2px; border-radius:6px; overflow:hidden; position:relative;";
+
             if (mimeType.startsWith("image/")) {
-                container.innerHTML = `<img src="${fileData}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${fileData}', 'image', event)" />`;
+                thumb.innerHTML = `<img src="${fileData}" style="width:100%; height:100%; object-fit:cover;" onclick="openImagePreview('${fileData}', 'image', event)" />`;
             } else if (mimeType.startsWith("video/")) {
-                container.innerHTML = `<video src="${fileData}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" onclick="openImagePreview('${fileData}', 'video', event)"></video>`;
-            } else if (mimeType.startsWith("audio/")) {
-                container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${fileData}', 'audio', event)">🎵<small>Audio</small></div>`;
+                thumb.innerHTML = `<video src="${fileData}" style="width:100%; height:100%; object-fit:cover;" onclick="openImagePreview('${fileData}', 'video', event)"></video>`;
             } else {
-                container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;" onclick="openImagePreview('${fileData}', 'file', event)">📁<small>File</small></div>`;
+                thumb.innerHTML = `<div onclick="openImagePreview('${fileData}', 'file', event)" style="background:#ccc; text-align:center; height:100%;">📁</div>`;
             }
+
+            container.appendChild(thumb);
         };
         reader.readAsDataURL(file);
-    }
+    });
 }
 
 function openImagePreview(src, type, event) {
@@ -305,6 +320,7 @@ async function loadStats(){
     } catch(err) { console.error("Gagal muat stats:", err); }
 }
 
+// Submission 
 async function submitWorkAndRefresh(e) {
     if (e) e.preventDefault();
 
@@ -320,6 +336,7 @@ async function submitWorkAndRefresh(e) {
     }
 
     const trainsFormatted = selectedTrains.map(t => `${t.train}:${t.coach}`).join(",");
+    
     const data = {
         team: localStorage.getItem("team") || "Team 1",
         task: taskVal,
@@ -329,8 +346,9 @@ async function submitWorkAndRefresh(e) {
         trains: trainsFormatted,
         findingProblem: document.getElementById("findingProblem").value,
         troubleshootMethod: document.getElementById("troubleshootMethod").value,
-        fileBefore: uploadedFileBefore,
-        fileAfter: uploadedFileAfter
+        // Send array as JSON string
+        fileBefore: JSON.stringify(uploadedFilesBefore),
+        fileAfter: JSON.stringify(uploadedFilesAfter)
     };
 
     try {
@@ -348,10 +366,11 @@ async function submitWorkAndRefresh(e) {
             savedItemsData = [];
             selectedTrains = [];
             selectedPics = [];
-            uploadedFileBefore = "";
-            uploadedFileAfter = "";
+            uploadedFilesBefore = [];
+            uploadedFilesAfter = [];
             currentDraftData = { itemIn: "", serialIn: "", itemOut: "", serialOut: "" };
             activeRowIndex = 0;
+            
             document.getElementById("previewBefore").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
             document.getElementById("previewAfter").innerHTML = '<div class="plus-icon">+</div><small>Add File</small>';
             
