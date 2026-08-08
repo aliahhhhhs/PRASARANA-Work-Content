@@ -601,6 +601,7 @@ async function loadPicDropdown(team) {
 }
 
 // Export to Excel
+// records.js
 async function exportToExcel() {
     if (!currentRecords || currentRecords.length === 0) {
         alert("Tiada rekod untuk diexport!");
@@ -609,7 +610,7 @@ async function exportToExcel() {
 
     const workbook = new ExcelJS.Workbook();
 
-    // SHEET 1: Work Content Records Table
+    // SHEET 1: Records Table
     const sheet1 = workbook.addWorksheet("Records Table");
     sheet1.columns = [
         { header: "ID", key: "id", width: 10 },
@@ -622,24 +623,25 @@ async function exportToExcel() {
         { header: "PIC", key: "pic", width: 25 }
     ];
 
-    // SHEET 2: Report Elements
+    // SHEET 2: Report Elements (Attachment Column)
     const sheet2 = workbook.addWorksheet("Report Elements");
     sheet2.columns = [
         { header: "ID", key: "id", width: 10 },
         { header: "TASK", key: "task", width: 25 },
-        { header: "FINDING PROBLEM", key: "finding_problem", width: 40 },
-        { header: "TROUBLESHOOT METHOD", key: "troubleshoot_method", width: 40 },
-        { header: "ATTACHMENTS", key: "attachments", width: 25 }
+        { header: "FINDING PROBLEM", key: "finding_problem", width: 35 },
+        { header: "TROUBLESHOOT METHOD", key: "troubleshoot_method", width: 35 },
+        { header: "BEFORE ATTACHMENT", key: "file_before", width: 30 },
+        { header: "AFTER ATTACHMENT", key: "file_after", width: 30 }
     ];
 
-    currentRecords.forEach(row => {
-        // Parse Items In & Out
+    for (let i = 0; i < currentRecords.length; i++) {
+        const row = currentRecords[i];
+
+        // --- SHEET 1 DATA ---
         let parsedItems = [];
         try {
             parsedItems = typeof row.item === 'string' ? JSON.parse(row.item) : row.item;
-        } catch(e) { 
-            parsedItems = []; 
-        }
+        } catch(e) { parsedItems = []; }
 
         let itemInStr = "";
         let itemOutStr = "";
@@ -656,22 +658,12 @@ async function exportToExcel() {
                 .join("\n");
         }
 
-        // Format Date (DD/MM/YYYY)
         let formattedDate = row.date || '-';
         if (row.date && row.date.includes("-")) {
             const parts = row.date.split("-");
             if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        // Semak status Attachments (Before & After)
-        let attachStatus = [];
-        if (row.file_before) attachStatus.push("Before: Available");
-        else attachStatus.push("Before: No File");
-
-        if (row.file_after) attachStatus.push("After: Available");
-        else attachStatus.push("After: No File");
-
-        // Add Data Ke Sheet 1
         sheet1.addRow({
             id: row.id,
             team: row.team || "-",
@@ -683,19 +675,77 @@ async function exportToExcel() {
             pic: row.pic || "-"
         });
 
-        // Add Data Ke Sheet 2
-        sheet2.addRow({
+        // --- SHEET 2 DATA ---
+        const sheet2Row = sheet2.addRow({
             id: row.id,
             task: row.task || "-",
             finding_problem: row.finding_problem || "No problem stated.",
             troubleshoot_method: row.troubleshoot_method || "No method stated.",
-            attachments: attachStatus.join(" | ")
+            file_before: "",
+            file_after: ""
         });
-    });
 
-    // Kemaskan Design Header & Alignment
+        const rowIndex = sheet2Row.number;
+
+        // Pelarasan ketinggian row jika ada fail gambar
+        const hasImage = (row.file_before && row.file_before.startsWith("data:image/")) || 
+                         (row.file_after && row.file_after.startsWith("data:image/"));
+        if (hasImage) {
+            sheet2.getRow(rowIndex).height = 80;
+        }
+
+        // Helper untuk handle Media (Gambar = Embed, Video/Audio/File = Playable Link)
+        const processMediaAttachment = (dataUrl, colIndex) => {
+            if (!dataUrl || typeof dataUrl !== 'string') {
+                sheet2.getCell(rowIndex, colIndex).value = "-";
+                return;
+            }
+
+            const cell = sheet2.getCell(rowIndex, colIndex);
+
+            if (dataUrl.startsWith("data:image/")) {
+                // Paparkan Gambar fizikal terus dalam Excel
+                const extension = dataUrl.substring("data:image/".length, dataUrl.indexOf(";base64"));
+                const imageId = workbook.addImage({
+                    base64: dataUrl,
+                    extension: extension === 'jpeg' ? 'jpeg' : 'png',
+                });
+
+                sheet2.addImage(imageId, {
+                    tl: { col: colIndex - 1, row: rowIndex - 1 },
+                    ext: { width: 100, height: 75 },
+                    editAs: 'oneCell'
+                });
+            } else if (dataUrl.startsWith("data:video/")) {
+                // Buat Pautan Video yang Boleh Diklik untuk dimainkan
+                cell.value = {
+                    text: '▶ Play Video Attachment',
+                    hyperlink: dataUrl
+                };
+                cell.font = { color: { argb: '0000FF' }, underline: true, bold: true };
+            } else if (dataUrl.startsWith("data:audio/")) {
+                // Buat Pautan Audio yang Boleh Diklik untuk didengar
+                cell.value = {
+                    text: '🎵 Play Audio Attachment',
+                    hyperlink: dataUrl
+                };
+                cell.font = { color: { argb: '0000FF' }, underline: true, bold: true };
+            } else {
+                // Pautan Fail Am
+                cell.value = {
+                    text: '📁 Open File Attachment',
+                    hyperlink: dataUrl
+                };
+                cell.font = { color: { argb: '0000FF' }, underline: true, bold: true };
+            }
+        };
+
+        processMediaAttachment(row.file_before, 5); // Kolum E
+        processMediaAttachment(row.file_after, 6);  // Kolum F
+    }
+
+    // --- STYLING HEADER ---
     [sheet1, sheet2].forEach(sheet => {
-        // Styling Header (Merah Prasarana #C8102E)
         sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
         sheet.getRow(1).fill = {
             type: 'pattern',
@@ -704,15 +754,14 @@ async function exportToExcel() {
         };
         sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-        // Wrap Text untuk baris-baris data
         sheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
-                row.alignment = { vertical: 'top', wrapText: true };
+                row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
             }
         });
     });
 
-    // Export & Download Fail
+    // Muat turun fail
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = window.URL.createObjectURL(blob);
